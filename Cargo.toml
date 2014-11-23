@@ -1,0 +1,15 @@
+[package]
+
+name = "lmdb"
+version = "0.1.0"
+authors = ["Dan Burkert <dan@danburkert.com>"]
+license = "Apache-2.0"
+
+description = "Safe Rust bindings for LMDB"
+repository = "https://github.com/danburkert/lmdb-rs.git"
+readme = "README.md"
+keywords = ["LMDB", "database", "storage-engine", "key-value-store", "bindings"]
+
+[lib]
+
+name = "lmdb"

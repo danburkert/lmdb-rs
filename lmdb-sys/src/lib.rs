@@ -1,4 +1,7 @@
-#![allow(non_camel_case_types, dead_code)]
+//! Provides extern declarations for `liblmdb`. Additionally, this crate provides `liblmdb` as a
+//! native Cargo dependency.
+
+#![allow(non_camel_case_types)]
 extern crate libc;
 
 use libc::{c_int, c_uint, c_void, c_char, size_t};
@@ -123,7 +126,6 @@ pub const MDB_NOLOCK: c_uint =  0x400000;
 pub const MDB_NORDAHEAD: c_uint = 0x800000;
 pub const MDB_NOMEMINIT: c_uint =  0x1000000;
 
-#[link(name = "lmdb")]
 extern {
     pub fn mdb_version(major: *mut c_int, minor: *mut c_int, patch: *mut c_int) -> *mut c_char;
     pub fn mdb_strerror(err: c_int) -> *mut c_char;

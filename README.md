@@ -13,6 +13,7 @@ general, the API is very similar to the LMDB [C-API](http://symas.com/mdb/doc/).
 
 ## TODO
 
+* [x] lmdb-sys.
 * [ ] Cursors.
 * [ ] Zero-copy put API.
 * [ ] Nested transactions.

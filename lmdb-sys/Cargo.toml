@@ -1,0 +1,16 @@
+[package]
+
+name = "lmdb-sys"
+version = "0.2.0"
+authors = ["Dan Burkert <dan@danburkert.com>"]
+license = "Apache-2.0"
+
+links = "lmdb"
+build = "build.rs"
+
+[lib]
+
+name = "lmdb-sys"
+
+[build-dependencies.pkg-config]
+pkg-config = "*"

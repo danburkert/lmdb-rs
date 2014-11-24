@@ -11,6 +11,14 @@ Safe Rust bindings for the [Symas Lightning Memory-Mapped Database (LMDB)](http:
 Provides the minimal amount of abstraction necessary to interact with LMDB safely in Rust. In
 general, the API is very similar to the LMDB [C-API](http://symas.com/mdb/doc/).
 
+## Building from Source
+
+```bash
+git clone --recursive git@github.com:danburkert/lmdb-rs.git
+cd lmdb-rs
+cargo build
+```
+
 ## TODO
 
 * [x] lmdb-sys.

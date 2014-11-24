@@ -14,3 +14,6 @@ name = "lmdb-sys"
 
 [build-dependencies.pkg-config]
 pkg-config = "*"
+
+[build-dependencies.gcc]
+gcc = "*"

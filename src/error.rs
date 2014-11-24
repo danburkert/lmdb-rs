@@ -57,7 +57,7 @@ impl Error for LmdbError {
             LmdbError::Unknown(i) => i,
             LmdbError::Io(ref io_error) => return io_error.description(),
         };
-        unsafe { str::raw::c_str_to_static_slice(ffi::mdb_strerror(err_code) as *const _) }
+        unsafe { str::from_c_str(ffi::mdb_strerror(err_code) as *const _) }
     }
 }
 

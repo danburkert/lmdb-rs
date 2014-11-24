@@ -22,7 +22,7 @@ cargo build
 ## TODO
 
 * [x] lmdb-sys.
-* [ ] Cursors.
+* [x] Cursors.
 * [ ] Zero-copy put API.
 * [ ] Nested transactions.
 * [ ] Database statistics.

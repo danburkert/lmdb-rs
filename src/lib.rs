@@ -8,12 +8,13 @@
 
 #[phase(plugin, link)] extern crate log;
 extern crate libc;
-extern crate sync;
 extern crate "lmdb-sys" as ffi;
 
+pub use cursor::Cursor;
+pub use database::Database;
 pub use environment::{Environment, EnvironmentBuilder};
 pub use error::{LmdbResult, LmdbError};
-pub use transaction::{Database, Transaction};
+pub use transaction::Transaction;
 
 macro_rules! lmdb_try {
     ($expr:expr) => ({
@@ -36,7 +37,10 @@ macro_rules! lmdb_try_with_cleanup {
     })
 }
 
+mod cursor;
+mod database;
 mod environment;
 mod error;
 mod transaction;
+
 pub mod flags;

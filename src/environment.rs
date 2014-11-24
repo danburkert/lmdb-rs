@@ -2,7 +2,7 @@ use libc::{c_uint, size_t, mode_t};
 use std::io::FilePermission;
 use std::ptr;
 
-use Database;
+use database::Database;
 use error::{LmdbError, LmdbResult, lmdb_result};
 use ffi;
 use ffi::MDB_env;

@@ -2,31 +2,34 @@ use libc::{c_uint, c_void, size_t};
 use std::{mem, ptr, raw};
 use std::kinds::marker;
 
+use cursor::Cursor;
+use database::Database;
 use environment::Environment;
 use error::{LmdbResult, lmdb_result};
 use ffi;
-use ffi::{MDB_txn, MDB_dbi};
+use ffi::MDB_txn;
 use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 
 /// An LMDB transaction.
 ///
 /// All database operations require a transaction.
-pub struct Transaction<'a> {
+pub struct Transaction<'env> {
     txn: *mut MDB_txn,
-    _marker: marker::ContravariantLifetime<'a>,
+    _marker: marker::ContravariantLifetime<'env>,
 }
 
 #[unsafe_destructor]
-impl <'a> Drop for Transaction<'a> {
+impl <'env> Drop for Transaction<'env> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_txn_abort(self.txn) }
     }
 }
 
-impl <'a> Transaction<'a> {
+impl <'env> Transaction<'env> {
 
-    /// Creates a new transaction in the given environment.
-    pub fn new(env: &'a Environment, flags: EnvironmentFlags) -> LmdbResult<Transaction<'a>> {
+    /// Creates a new transaction in the given environment. Prefer using `Environment::begin_txn`.
+    #[doc(hidden)]
+    pub fn new(env: &'env Environment, flags: EnvironmentFlags) -> LmdbResult<Transaction<'env>> {
         let mut txn: *mut MDB_txn = ptr::null_mut();
         unsafe {
             try!(lmdb_result(ffi::mdb_txn_begin(env.env(),
@@ -35,7 +38,7 @@ impl <'a> Transaction<'a> {
                                                 &mut txn)));
             Ok(Transaction {
                 txn: txn,
-                _marker: marker::ContravariantLifetime::<'a>,
+                _marker: marker::ContravariantLifetime::<'env>,
             })
         }
     }
@@ -53,7 +56,7 @@ impl <'a> Transaction<'a> {
     /// If `name` is `None`, then the returned handle will be for the default database.
     ///
     /// If `name` is not `None`, then the returned handle will be for a named database. In this
-    /// case the envirnment must be configured to allow named databases through
+    /// case the environment must be configured to allow named databases through
     /// `EnvironmentBuilder::set_max_dbs`.
     ///
     /// The database handle will be private to the current transaction until the transaction is
@@ -63,21 +66,15 @@ impl <'a> Transaction<'a> {
     ///
     /// A transaction that uses this function must finish (either commit or abort) before any other
     /// transaction may use the function.
-    pub fn open_db(&self, name: Option<&str>, flags: DatabaseFlags) -> LmdbResult<Database<'a>> {
-        let c_name = name.map(|n| n.to_c_str());
-        let name_ptr = if let Some(ref c_name) = c_name { c_name.as_ptr() } else { ptr::null() };
-        let mut dbi: MDB_dbi = 0;
-        unsafe {
-            try!(lmdb_result(ffi::mdb_dbi_open(self.txn, name_ptr, flags.bits(), &mut dbi)));
-        }
-        Ok(Database { dbi: dbi, _marker: marker::ContravariantLifetime::<'a> })
+    pub fn open_db(&self, name: Option<&str>, flags: DatabaseFlags) -> LmdbResult<Database<'env>> {
+        Database::new(self, name, flags)
     }
 
     /// Gets the option flags for the given database in the transaction.
-    pub fn db_flags(&self, db: &Database) -> LmdbResult<DatabaseFlags> {
+    pub fn db_flags(&self, db: Database) -> LmdbResult<DatabaseFlags> {
         let mut flags: c_uint = 0;
         unsafe {
-            try!(lmdb_result(ffi::mdb_dbi_flags(self.txn, db.dbi, &mut flags)));
+            try!(lmdb_result(ffi::mdb_dbi_flags(self.txn, db.dbi(), &mut flags)));
         }
 
         Ok(DatabaseFlags::from_bits_truncate(flags))
@@ -106,17 +103,17 @@ impl <'a> Transaction<'a> {
     /// This function retrieves the data associated with the given key in the database. If the
     /// database supports duplicate keys (`MDB_DUPSORT`) then the first data item for the key will
     /// be returned. Retrieval of other items requires the use of `Transaction::cursor_get`.
-    pub fn get(&self, database: &Database, key: &[u8]) -> LmdbResult<&'a [u8]> {
+    pub fn get<'txn>(&'txn self, database: Database, key: &[u8]) -> LmdbResult<&'txn [u8]> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *const c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: 0,
                                                         mv_data: ptr::null() };
         unsafe {
             try!(lmdb_result(ffi::mdb_get(self.txn(),
-                                          database.dbi,
+                                          database.dbi(),
                                           &mut key_val,
                                           &mut data_val)));
-            let slice: &'a [u8] =
+            let slice: &'txn [u8] =
                 mem::transmute(raw::Slice {
                     data: data_val.mv_data as *const u8,
                     len: data_val.mv_size as uint
@@ -130,8 +127,8 @@ impl <'a> Transaction<'a> {
     /// This function stores key/data pairs in the database. The default behavior is to enter the
     /// new key/data pair, replacing any previously existing key if duplicates are disallowed, or
     /// adding a duplicate data item if duplicates are allowed (`MDB_DUPSORT`).
-    pub fn put(&self,
-               database: &Database,
+    pub fn put(&mut self,
+               database: Database,
                key: &[u8],
                data: &[u8],
                flags: WriteFlags)
@@ -142,7 +139,7 @@ impl <'a> Transaction<'a> {
                                                         mv_data: data.as_ptr() as *const c_void };
         unsafe {
             lmdb_result(ffi::mdb_put(self.txn(),
-                                     database.dbi,
+                                     database.dbi(),
                                      &mut key_val,
                                      &mut data_val,
                                      flags.bits()))
@@ -157,8 +154,8 @@ impl <'a> Transaction<'a> {
     /// for the key will be deleted. Otherwise, if the data parameter is `Some` only the matching
     /// data item will be deleted. This function will return `MDB_NOTFOUND` if the specified key/data
     /// pair is not in the database.
-    pub fn del(&self,
-               database: &Database,
+    pub fn del(&mut self,
+               database: Database,
                key: &[u8],
                data: Option<&[u8]>)
                -> LmdbResult<()> {
@@ -169,37 +166,15 @@ impl <'a> Transaction<'a> {
                                            mv_data: data.as_ptr() as *const c_void });
         unsafe {
             lmdb_result(ffi::mdb_del(self.txn(),
-                                     database.dbi,
+                                     database.dbi(),
                                      &mut key_val,
                                      data_val.map(|mut data_val| &mut data_val as *mut _)
                                              .unwrap_or(ptr::null_mut())))
         }
     }
-}
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-//// Database
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// A handle to an individual database in an environment.
-///
-/// A database handle denotes the name and parameters of a database. The database may not
-/// exist in the environment.
-pub struct Database<'a> {
-    dbi: MDB_dbi,
-    _marker: marker::ContravariantLifetime<'a>,
-}
-
-impl <'a> Copy for Database<'a> { }
-
-impl <'a> Database<'a> {
-
-    /// Returns the underlying LMDB database handle.
-    ///
-    /// The caller **must** ensure that the handle is not used after the lifetime of the
-    /// environment, or after the database handle has been closed.
-    pub fn dbi(&self) -> MDB_dbi {
-        self.dbi
+    pub fn open_cursor<'txn>(&'txn self, db: Database) -> LmdbResult<Cursor<'txn>> {
+        Cursor::new(self, db)
     }
 }
 
@@ -240,21 +215,21 @@ mod test {
         let dir = io::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
 
-        let txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
+        let mut txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
         let db = txn.open_db(None, DatabaseFlags::empty()).unwrap();
-        txn.put(&db, b"key1", b"val1", WriteFlags::empty()).unwrap();
-        txn.put(&db, b"key2", b"val2", WriteFlags::empty()).unwrap();
-        txn.put(&db, b"key3", b"val3", WriteFlags::empty()).unwrap();
+        txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
+        txn.put(db, b"key2", b"val2", WriteFlags::empty()).unwrap();
+        txn.put(db, b"key3", b"val3", WriteFlags::empty()).unwrap();
         txn.commit().unwrap();
 
-        let txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
-        assert_eq!(b"val1", txn.get(&db, b"key1").unwrap());
-        assert_eq!(b"val2", txn.get(&db, b"key2").unwrap());
-        assert_eq!(b"val3", txn.get(&db, b"key3").unwrap());
-        assert!(txn.get(&db, b"key").is_err());
+        let mut txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
+        assert_eq!(b"val1", txn.get(db, b"key1").unwrap());
+        assert_eq!(b"val2", txn.get(db, b"key2").unwrap());
+        assert_eq!(b"val3", txn.get(db, b"key3").unwrap());
+        assert!(txn.get(db, b"key").is_err());
 
-        txn.del(&db, b"key1", None).unwrap();
-        assert!(txn.get(&db, b"key1").is_err());
+        txn.del(db, b"key1", None).unwrap();
+        assert!(txn.get(db, b"key1").is_err());
     }
 
     #[test]
@@ -280,19 +255,19 @@ mod test {
         };
 
         // Check that database handles are reused properly
-        assert!(db1.dbi == db2.dbi);
+        assert!(db1.dbi() == db2.dbi());
 
         {
-            let txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
-            txn.put(&db1, b"key1", b"val1", WriteFlags::empty()).unwrap();
+            let mut txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
+            txn.put(db1, b"key1", b"val1", WriteFlags::empty()).unwrap();
             assert!(txn.commit().is_ok());
         }
 
         unsafe { env.close_db(db1) };
 
         {
-            let txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
-            assert!(txn.put(&db1, b"key2", b"val2", WriteFlags::empty()).is_err());
+            let mut txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
+            assert!(txn.put(db1, b"key2", b"val2", WriteFlags::empty()).is_err());
         }
     }
 
@@ -302,7 +277,7 @@ mod test {
         let env = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
 
         let open_db_txn = env.begin_txn(MDB_RDONLY).unwrap();
-        let db = Arc::new(open_db_txn.open_db(None, DatabaseFlags::empty()).unwrap());
+        let db = open_db_txn.open_db(None, DatabaseFlags::empty()).unwrap();
         open_db_txn.commit().unwrap();
 
         let n = 10u; // Number of concurrent readers
@@ -314,27 +289,26 @@ mod test {
 
         for _ in range(0, n) {
             let reader_env = env.clone();
-            let reader_db = db.clone();
             let reader_barrier = barrier.clone();
 
             futures.push(Future::spawn(proc() {
                 {
                     let txn = reader_env.begin_txn(MDB_RDONLY).unwrap();
-                    assert!(txn.get(&*reader_db, key).is_err());
+                    assert!(txn.get(db, key).is_err());
                     txn.abort();
                 }
                 reader_barrier.wait();
                 reader_barrier.wait();
                 {
                     let txn = reader_env.begin_txn(MDB_RDONLY).unwrap();
-                    txn.get(&*reader_db, key).unwrap() == val
+                    txn.get(db, key).unwrap() == val
                 }
             }));
         }
 
-        let txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
+        let mut txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
         barrier.wait();
-        txn.put(&*db, key, val, WriteFlags::empty()).unwrap();
+        txn.put(db, key, val, WriteFlags::empty()).unwrap();
         txn.commit().unwrap();
         barrier.wait();
 
@@ -347,7 +321,7 @@ mod test {
         let env = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
 
         let open_db_txn = env.begin_txn(MDB_RDONLY).unwrap();
-        let db = Arc::new(open_db_txn.open_db(None, DatabaseFlags::empty()).unwrap());
+        let db = open_db_txn.open_db(None, DatabaseFlags::empty()).unwrap();
         open_db_txn.commit().unwrap();
 
         let n = 10u; // Number of concurrent writers
@@ -358,11 +332,10 @@ mod test {
 
         for i in range(0, n) {
             let writer_env = env.clone();
-            let writer_db = db.clone();
 
             futures.push(Future::spawn(proc() {
-                let txn = writer_env.begin_txn(EnvironmentFlags::empty()).unwrap();
-                txn.put(&*writer_db,
+                let mut txn = writer_env.begin_txn(EnvironmentFlags::empty()).unwrap();
+                txn.put(db,
                         format!("{}{}", key, i).as_bytes(),
                         format!("{}{}", val, i).as_bytes(),
                         WriteFlags::empty())
@@ -377,7 +350,7 @@ mod test {
         for i in range(0, n) {
             assert_eq!(
                 format!("{}{}", val, i).as_bytes(),
-                txn.get(&*db, format!("{}{}", key, i).as_bytes()).unwrap());
+                txn.get(db, format!("{}{}", key, i).as_bytes()).unwrap());
         }
     }
 }

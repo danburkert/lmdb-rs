@@ -16,4 +16,3 @@ name = "lmdb"
 
 [dependencies.lmdb-sys]
 path = "lmdb-sys"
-

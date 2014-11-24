@@ -157,7 +157,7 @@ extern {
     pub fn mdb_dbi_open(txn: *mut MDB_txn, name: *const c_char, flags: c_uint, dbi: *mut MDB_dbi) -> c_int;
     pub fn mdb_stat(txn: *mut MDB_txn, dbi: MDB_dbi, stat: *mut MDB_stat) -> c_int;
     pub fn mdb_dbi_flags(txn: *mut MDB_txn, dbi: MDB_dbi, flags: *mut c_uint) -> c_int;
-    pub fn mdb_dbi_close(txn: *mut MDB_txn, dbi: MDB_dbi);
+    pub fn mdb_dbi_close(txn: *mut MDB_env, dbi: MDB_dbi);
     pub fn mdb_drop(txn: *mut MDB_txn, dbi: MDB_dbi, del: c_int) -> c_int;
     pub fn mdb_set_compare(txn: *mut MDB_txn, dbi: MDB_dbi, cmp: *mut MDB_cmp_func) -> c_int;
     pub fn mdb_set_dupsort(txn: *mut MDB_txn, dbi: MDB_dbi, cmp: *mut MDB_cmp_func) -> c_int;

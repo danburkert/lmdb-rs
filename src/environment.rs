@@ -2,6 +2,7 @@ use libc::{c_uint, size_t, mode_t};
 use std::io::FilePermission;
 use std::ptr;
 
+use Database;
 use error::{LmdbError, LmdbResult, lmdb_result};
 use ffi;
 use ffi::MDB_env;
@@ -51,6 +52,21 @@ impl Environment {
         unsafe {
             lmdb_result(ffi::mdb_env_sync(self.env(), if force { 1 } else { 0 }))
         }
+    }
+
+    /// Close a database handle. Normally unnecessary.
+    ///
+    /// This call is not mutex protected. Handles should only be closed by a single thread, and only
+    /// if no other threads are going to reference the database handle or one of its cursors any
+    /// further. Do not close a handle if an existing transaction has modified its database. Doing
+    /// so can cause misbehavior from database corruption to errors like `MDB_BAD_VALSIZE` (since the
+    /// DB name is gone).
+    ///
+    /// Closing a database handle is not necessary, but lets `Transaction::open_database` reuse the
+    /// handle value. Usually it's better to set a bigger `EnvironmentBuilder::set_max_dbs`, unless
+    /// that value would be large.
+    pub unsafe fn close_db(&self, db: Database) {
+        ffi::mdb_dbi_close(self.env, db.dbi())
     }
 }
 

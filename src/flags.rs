@@ -158,6 +158,13 @@ bitflags! {
     #[deriving(Show)]
     flags WriteFlags: c_uint {
 
+        #[doc="Enter the new key/data pair only if the key"]
+        #[doc="does not already appear in the database. The function will return"]
+        #[doc="`KeyExist` if the key already appears in the database, even if"]
+        #[doc="the database supports duplicates (`MDB_DUPSORT`). The `data`"]
+        #[doc="parameter will be set to point to the existing item."]
+        const MDB_NOOVERWRITE = 0x10,
+
         #[doc="Enter the new key/data pair only if it does not"]
         #[doc="already appear in the database. This flag may only be specified"]
         #[doc="if the database was opened with `MDB_DUPSORT`. The function will"]
@@ -165,12 +172,13 @@ bitflags! {
         #[doc="database."]
         const MDB_NODUPDATA = 0x20,
 
-        #[doc="Enter the new key/data pair only if the key"]
-        #[doc="does not already appear in the database. The function will return"]
-        #[doc="`KeyExist` if the key already appears in the database, even if"]
-        #[doc="the database supports duplicates (`MDB_DUPSORT`). The `data`"]
-        #[doc="parameter will be set to point to the existing item."]
-        const MDB_NOOVERWRITE = 0x10,
+        #[doc="For `Cursor::put`. Replace the item at the current cursor position."]
+        #[doc="The key parameter must match the current position. If using"]
+        #[doc="sorted duplicates (`MDB_DUPSORT`) the data item must still sort into the"]
+        #[doc="same position. This is intended to be used when the new data is the same"]
+        #[doc="size as the old. Otherwise it will simply perform a delete of the old"]
+        #[doc="record followed by an insert."]
+        const MDB_CURRENT = 0x40,
 
         #[doc="Reserve space for data of the given size, but"]
         #[doc="don't copy the given data. Instead, return a pointer to the"]

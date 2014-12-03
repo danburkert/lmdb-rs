@@ -15,7 +15,9 @@ use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 /// All database operations require a transaction.
 pub struct Transaction<'env> {
     txn: *mut MDB_txn,
-    _marker: marker::ContravariantLifetime<'env>,
+    _no_sync: marker::NoSync,
+    _no_send: marker::NoSend,
+    _contravariant: marker::ContravariantLifetime<'env>,
 }
 
 #[unsafe_destructor]
@@ -38,7 +40,9 @@ impl <'env> Transaction<'env> {
                                                 &mut txn)));
             Ok(Transaction {
                 txn: txn,
-                _marker: marker::ContravariantLifetime::<'env>,
+                _no_sync: marker::NoSync,
+                _no_send: marker::NoSend,
+                _contravariant: marker::ContravariantLifetime::<'env>,
             })
         }
     }
@@ -173,7 +177,11 @@ impl <'env> Transaction<'env> {
         }
     }
 
-    pub fn open_cursor<'txn>(&'txn self, db: Database) -> LmdbResult<Cursor<'txn>> {
+    /// Open a new cursor over the database.
+    ///
+    /// Takes a mutable reference to the transaction since cursors can mutate the transaction, which
+    /// will invalidates values read during the transaction.
+    pub fn open_cursor<'txn>(&'txn mut self, db: Database) -> LmdbResult<Cursor<'txn>> {
         Cursor::new(self, db)
     }
 }

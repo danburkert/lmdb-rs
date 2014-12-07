@@ -1,6 +1,7 @@
 use libc::{c_uint, c_void, size_t};
 use std::{mem, ptr, raw};
 use std::kinds::marker;
+use std::io::BufWriter;
 
 use cursor::Cursor;
 use database::Database;
@@ -8,7 +9,7 @@ use environment::Environment;
 use error::{LmdbResult, lmdb_result};
 use ffi;
 use ffi::MDB_txn;
-use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags};
+use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags, MDB_RESERVE};
 
 /// An LMDB transaction.
 ///
@@ -109,9 +110,9 @@ impl <'env> Transaction<'env> {
     /// be returned. Retrieval of other items requires the use of `Transaction::cursor_get`.
     pub fn get<'txn>(&'txn self, database: Database, key: &[u8]) -> LmdbResult<&'txn [u8]> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *const c_void };
+                                                       mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: 0,
-                                                        mv_data: ptr::null() };
+                                                        mv_data: ptr::null_mut() };
         unsafe {
             try!(lmdb_result(ffi::mdb_get(self.txn(),
                                           database.dbi(),
@@ -138,15 +139,43 @@ impl <'env> Transaction<'env> {
                flags: WriteFlags)
                -> LmdbResult<()> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *const c_void };
+                                                       mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
-                                                        mv_data: data.as_ptr() as *const c_void };
+                                                        mv_data: data.as_ptr() as *mut c_void };
         unsafe {
             lmdb_result(ffi::mdb_put(self.txn(),
                                      database.dbi(),
                                      &mut key_val,
                                      &mut data_val,
                                      flags.bits()))
+        }
+    }
+
+    /// Returns a `BufWriter` which can be used to write a value into the item at the given key
+    /// and with the given length.
+    pub fn put_zero_copy<'txn>(&'txn mut self,
+                               database: Database,
+                               key: &[u8],
+                               len: size_t,
+                               flags: WriteFlags)
+                               -> LmdbResult<BufWriter<'txn>> {
+        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
+                                                       mv_data: key.as_ptr() as *mut c_void };
+        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: len,
+                                                        mv_data: ptr::null_mut::<c_void>() };
+        unsafe {
+            try!(lmdb_result(ffi::mdb_put(self.txn(),
+                                          database.dbi(),
+                                          &mut key_val,
+                                          &mut data_val,
+                                          (flags | MDB_RESERVE).bits())));
+            let slice: &'txn mut [u8] =
+                mem::transmute(raw::Slice {
+                    data: data_val.mv_data as *const u8,
+                    len: data_val.mv_size as uint
+                });
+
+            Ok(BufWriter::new(slice))
         }
     }
 
@@ -164,10 +193,10 @@ impl <'env> Transaction<'env> {
                data: Option<&[u8]>)
                -> LmdbResult<()> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *const c_void };
+                                                       mv_data: key.as_ptr() as *mut c_void };
         let data_val: Option<ffi::MDB_val> =
             data.map(|data| ffi::MDB_val { mv_size: data.len() as size_t,
-                                           mv_data: data.as_ptr() as *const c_void });
+                                           mv_data: data.as_ptr() as *mut c_void });
         unsafe {
             lmdb_result(ffi::mdb_del(self.txn(),
                                      database.dbi(),
@@ -234,6 +263,27 @@ mod test {
         assert_eq!(b"val1", txn.get(db, b"key1").unwrap());
         assert_eq!(b"val2", txn.get(db, b"key2").unwrap());
         assert_eq!(b"val3", txn.get(db, b"key3").unwrap());
+        assert!(txn.get(db, b"key").is_err());
+
+        txn.del(db, b"key1", None).unwrap();
+        assert!(txn.get(db, b"key1").is_err());
+    }
+
+    #[test]
+    fn test_put_zero_copy() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+
+        let mut txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
+        let db = txn.open_db(None, DatabaseFlags::empty()).unwrap();
+        {
+            let mut writer = txn.put_zero_copy(db, b"key1", 4, WriteFlags::empty()).unwrap();
+            writer.write(b"val1").unwrap();
+        }
+        txn.commit().unwrap();
+
+        let mut txn = env.begin_txn(EnvironmentFlags::empty()).unwrap();
+        assert_eq!(b"val1", txn.get(db, b"key1").unwrap());
         assert!(txn.get(db, b"key").is_err());
 
         txn.del(db, b"key1", None).unwrap();

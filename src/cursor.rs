@@ -74,9 +74,9 @@ impl <'txn> Cursor<'txn> {
                -> LmdbResult<()> {
 
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *const c_void };
+                                                       mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
-                                                        mv_data: data.as_ptr() as *const c_void };
+                                                        mv_data: data.as_ptr() as *mut c_void };
 
         unsafe {
             lmdb_result(ffi::mdb_cursor_put(self.cursor(),
@@ -103,10 +103,10 @@ unsafe fn slice_to_val(slice: Option<&[u8]>) -> MDB_val {
     match slice {
         Some(slice) =>
             MDB_val { mv_size: slice.len() as size_t,
-                      mv_data: slice.as_ptr() as *const c_void },
+                      mv_data: slice.as_ptr() as *mut c_void },
         None =>
             MDB_val { mv_size: 0,
-                      mv_data: ptr::null() },
+                      mv_data: ptr::null_mut() },
     }
 }
 
@@ -238,10 +238,10 @@ mod test {
             match slice {
                 Some(slice) =>
                     MDB_val { mv_size: slice.len() as size_t,
-                              mv_data: slice.as_ptr() as *const c_void },
+                              mv_data: slice.as_ptr() as *mut c_void },
                 None =>
                     MDB_val { mv_size: 0,
-                              mv_data: ptr::null() },
+                              mv_data: ptr::null_mut() },
             }
         }
 

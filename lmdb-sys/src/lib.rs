@@ -18,7 +18,7 @@ pub type MDB_cmp_func = extern fn(*const MDB_val, *const MDB_val) -> c_int;
 #[repr(C)]
 pub struct MDB_val {
     pub mv_size: size_t,
-    pub mv_data: *const c_void,
+    pub mv_data: *mut c_void,
 }
 
 #[repr(C)]

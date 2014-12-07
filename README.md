@@ -23,6 +23,6 @@ cargo build
 
 * [x] lmdb-sys.
 * [x] Cursors.
-* [ ] Zero-copy put API.
+* [x] Zero-copy put API.
 * [ ] Nested transactions.
 * [ ] Database statistics.

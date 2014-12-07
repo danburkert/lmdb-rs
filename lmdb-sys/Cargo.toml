@@ -12,6 +12,9 @@ build = "build.rs"
 
 name = "lmdb-sys"
 
+[dependencies.rust-bindgen]
+rust-bindgen = "*"
+
 [build-dependencies.pkg-config]
 pkg-config = "*"
 

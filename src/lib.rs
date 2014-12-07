@@ -14,13 +14,13 @@ pub use cursor::Cursor;
 pub use database::Database;
 pub use environment::{Environment, EnvironmentBuilder};
 pub use error::{LmdbResult, LmdbError};
-pub use transaction::Transaction;
+pub use transaction::{ReadTransaction, WriteTransaction, RoTransaction, RwTransaction};
 
 macro_rules! lmdb_try {
     ($expr:expr) => ({
         match $expr {
-            ffi::MDB_SUCCESS => (),
-            err_code => return Err(::std::error::FromError::from_error(LmdbError::from_err_code(err_code))),
+            ::ffi::MDB_SUCCESS => (),
+            err_code => return Err(::std::error::FromError::from_error(::LmdbError::from_err_code(err_code))),
         }
     })
 }
@@ -28,10 +28,10 @@ macro_rules! lmdb_try {
 macro_rules! lmdb_try_with_cleanup {
     ($expr:expr, $cleanup:expr) => ({
         match $expr {
-            ffi::MDB_SUCCESS => (),
+            ::ffi::MDB_SUCCESS => (),
             err_code => {
                 let _ = $cleanup;
-                return Err(::std::error::FromError::from_error(LmdbError::from_err_code(err_code)))
+                return Err(::std::error::FromError::from_error(::LmdbError::from_err_code(err_code)))
             },
         }
     })
@@ -42,5 +42,3 @@ mod database;
 mod environment;
 mod error;
 mod transaction;
-
-pub mod flags;

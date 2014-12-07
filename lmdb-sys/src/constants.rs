@@ -1,4 +1,4 @@
-use libc::c_uint;
+use libc::{c_int, c_uint};
 
 bitflags! {
     #[doc="Environment Options"]
@@ -120,38 +120,38 @@ bitflags! {
             #[doc="Keys are strings to be compared in reverse order, from the end"]
             #[doc="of the strings to the beginning. By default, Keys are treated as strings and"]
             #[doc="compared from beginning to end."]
-            const MDB_REVERSEKEY = 0x02,
+            const MDB_REVERSEKEY = 0x02, // 2
 
             #[doc="Duplicate keys may be used in the database. (Or, from another perspective,"]
             #[doc="keys may have multiple data items, stored in sorted order.) By default"]
             #[doc="keys must be unique and may have only a single data item."]
-            const MDB_DUPSORT = 0x04,
+            const MDB_DUPSORT = 0x04, // 4
 
             #[doc="Keys are binary integers in native byte order. Setting this option"]
             #[doc="requires all keys to be the same size, typically sizeof(int)"]
             #[doc="or sizeof(size_t)."]
-            const MDB_INTEGERKEY = 0x08,
+            const MDB_INTEGERKEY = 0x08, // 8
 
             #[doc="This flag may only be used in combination with `MDB_DUPSORT`. This option"]
             #[doc="tells the library that the data items for this database are all the same"]
             #[doc="size, which allows further optimizations in storage and retrieval. When"]
             #[doc="all data items are the same size, the `MDB_GET_MULTIPLE` and `MDB_NEXT_MULTIPLE`"]
             #[doc="cursor operations may be used to retrieve multiple items at once."]
-            const MDB_DUPFIXED = 0x10,
+            const MDB_DUPFIXED = 0x10, // 16
 
             #[doc="This option specifies that duplicate data items are also integers, and"]
             #[doc="should be sorted as such."]
-            const MDB_INTEGERDUP = 0x20,
+            const MDB_INTEGERDUP = 0x20, // 32
 
             #[doc="This option specifies that duplicate data items should be compared as"]
             #[doc="strings in reverse order."]
-            const MDB_REVERSEDUP = 0x40,
-
-            #[doc="Create the named database if it doesn't exist. This option is not"]
-            #[doc="allowed in a read-only transaction or a read-only environment."]
-            const MDB_CREATE = 0x40000,
+            const MDB_REVERSEDUP = 0x40, // 64
     }
 }
+
+/// Create the named database if it doesn't exist. This option is not
+/// allowed in a read-only transaction or a read-only environment.
+pub const MDB_CREATE: c_uint = 0x40000;
 
 bitflags! {
     #[doc="Write Options"]
@@ -180,15 +180,6 @@ bitflags! {
         #[doc="record followed by an insert."]
         const MDB_CURRENT = 0x40,
 
-        #[doc="Reserve space for data of the given size, but"]
-        #[doc="don't copy the given data. Instead, return a pointer to the"]
-        #[doc="reserved space, which the caller can fill in later - before"]
-        #[doc="the next update operation or the transaction ends. This saves"]
-        #[doc="an extra memcpy if the data is being generated later."]
-        #[doc="LMDB does nothing else with this memory, the caller is expected"]
-        #[doc="to modify all of the space requested."]
-        const MDB_RESERVE = 0x10000,
-
         #[doc="Append the given key/data pair to the end of the"]
         #[doc="database. No key comparisons are performed. This option allows"]
         #[doc="fast bulk loading when keys are already known to be in the"]
@@ -200,3 +191,81 @@ bitflags! {
         const MDB_APPENDDUP = 0x40000,
     }
 }
+
+/// Reserve space for data of the given size, but don't copy the given data. Instead, return a
+/// pointer to the reserved space, which the caller can fill in later - before the next update
+/// operation or the transaction ends. This saves an extra memcpy if the data is being generated
+/// later. LMDB does nothing else with this memory, the caller is expected to modify all of the
+/// space requested.
+pub const MDB_RESERVE: c_uint = 0x10000;
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//// Return Codes
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Successful result.
+pub const MDB_SUCCESS: c_int = 0;
+
+/// key/data pair already exists.
+pub const MDB_KEYEXIST: c_int = -30799;
+
+/// key/data pair not found (EOF).
+pub const MDB_NOTFOUND: c_int = -30798;
+
+/// Requested page not found - this usually indicates corruption.
+pub const MDB_PAGE_NOTFOUND: c_int = -30797;
+
+/// Located page was wrong type.
+pub const MDB_CORRUPTED: c_int = -30796;
+
+/// Update of meta page failed or environment had fatal error.
+pub const MDB_PANIC	: c_int = -30795;
+
+/// Environment version mismatch.
+pub const MDB_VERSION_MISMATCH: c_int = -30794;
+
+/// File is not a valid LMDB file.
+pub const MDB_INVALID: c_int = -30793;
+
+/// Environment mapsize reached.
+pub const MDB_MAP_FULL: c_int = -30792;
+
+/// Environment maxdbs reached.
+pub const MDB_DBS_FULL: c_int = -30791;
+
+/// Environment maxreaders reached.
+pub const MDB_READERS_FULL: c_int = -30790;
+
+/// Too many TLS keys in use - Windows only.
+pub const MDB_TLS_FULL: c_int = -30789;
+
+/// Txn has too many dirty pages.
+pub const MDB_TXN_FULL: c_int = -30788;
+
+/// Cursor stack too deep - internal error.
+pub const MDB_CURSOR_FULL: c_int = -30787;
+
+/// Page has not enough space - internal error.
+pub const MDB_PAGE_FULL: c_int = -30786;
+
+/// Database contents grew beyond environment mapsize.
+pub const MDB_MAP_RESIZED: c_int = -30785;
+
+/// MDB_INCOMPATIBLE: Operation and DB incompatible, or DB flags changed.
+pub const MDB_INCOMPATIBLE: c_int = -30784;
+
+/// Invalid reuse of reader locktable slot.
+pub const MDB_BAD_RSLOT: c_int = -30783;
+
+/// Transaction cannot recover - it must be aborted.
+pub const MDB_BAD_TXN: c_int = -30782;
+
+/// Unsupported size of key/DB name/data, or wrong DUPFIXED size.
+pub const MDB_BAD_VALSIZE: c_int = -30781;
+
+/// The specified DBI was changed unexpectedly.
+pub const MDB_BAD_DBI: c_int = -30780;
+
+/// The last defined error code.
+pub const MDB_LAST_ERRCODE: c_int = MDB_BAD_DBI;

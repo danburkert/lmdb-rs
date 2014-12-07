@@ -1,19 +1,19 @@
 use libc::{c_uint, size_t, mode_t};
 use std::io::FilePermission;
 use std::ptr;
+use std::sync::Mutex;
 
+use error::{LmdbResult, lmdb_result};
 use database::Database;
-use error::{LmdbError, LmdbResult, lmdb_result};
-use ffi;
-use ffi::MDB_env;
-use flags::EnvironmentFlags;
-use transaction::Transaction;
+use ffi::*;
+use transaction::{RoTransaction, RwTransaction, Transaction, TransactionExt};
 
 /// An LMDB environment.
 ///
 /// An environment supports multiple databases, all residing in the same shared-memory map.
 pub struct Environment {
     env: *mut MDB_env,
+    dbi_open_mutex: Mutex<()>,
 }
 
 impl Environment {
@@ -36,11 +36,65 @@ impl Environment {
         self.env
     }
 
-    /// Create a transaction for use with the environment.
+    /// Opens a handle to an LMDB database.
     ///
-    /// `flags` must either be empty, or `MDB_RDONLY` in order to specify a read-only transaction.
-    pub fn begin_txn<'a>(&'a self, flags: EnvironmentFlags) -> LmdbResult<Transaction<'a>> {
-        Transaction::new(self, flags)
+    /// If `name` is `None`, then the returned handle will be for the default database.
+    ///
+    /// If `name` is not `None`, then the returned handle will be for a named database. In this
+    /// case the environment must be configured to allow named databases through
+    /// `EnvironmentBuilder::set_max_dbs`.
+    ///
+    /// The returned database handle may be shared among transactions.
+    pub fn open_db<'env>(&'env self, name: Option<&str>) -> LmdbResult<Database<'env>> {
+        let mutex = self.dbi_open_mutex.lock();
+        let txn = try!(self.begin_read_txn());
+        let db = unsafe { try!(Database::open(&txn, name)) };
+        try!(txn.commit());
+        drop(mutex);
+        Ok(db)
+    }
+
+    /// Opens a handle to an LMDB database, opening the database if necessary.
+    ///
+    /// If the database is already created, the given option flags will be added to it.
+    ///
+    /// If `name` is `None`, then the returned handle will be for the default database.
+    ///
+    /// If `name` is not `None`, then the returned handle will be for a named database. In this
+    /// case the environment must be configured to allow named databases through
+    /// `EnvironmentBuilder::set_max_dbs`.
+    ///
+    /// The returned database handle may be shared among transactions.
+    pub fn create_db<'env>(&'env self,
+                           name: Option<&str>,
+                           flags: DatabaseFlags)
+                           -> LmdbResult<Database<'env>> {
+        let mutex = self.dbi_open_mutex.lock();
+        let txn = try!(self.begin_write_txn());
+        let db = unsafe { try!(Database::create(&txn, name, flags)) };
+        try!(txn.commit());
+        drop(mutex);
+        Ok(db)
+    }
+
+    pub fn get_db_flags<'env>(&'env self, db: Database<'env>) -> LmdbResult<DatabaseFlags> {
+        let txn = try!(self.begin_read_txn());
+        let mut flags: c_uint = 0;
+        unsafe {
+            try!(lmdb_result(mdb_dbi_flags(txn.txn(), db.dbi(), &mut flags)));
+        }
+        Ok(DatabaseFlags::from_bits(flags).unwrap())
+    }
+
+    /// Create a read-only transaction for use with the environment.
+    pub fn begin_read_txn<'env>(&'env self) -> LmdbResult<RoTransaction<'env>> {
+        RoTransaction::new(self)
+    }
+
+    /// Create a read-write transaction for use with the environment. This method will block while
+    /// there are any other read-write transactions open on the environment.
+    pub fn begin_write_txn<'env>(&'env self) -> LmdbResult<RwTransaction<'env>> {
+        RwTransaction::new(self)
     }
 
     /// Flush data buffers to disk.
@@ -50,7 +104,7 @@ impl Environment {
     /// the environment was opened with `MDB_NOSYNC` or in part `MDB_NOMETASYNC`.
     pub fn sync(&self, force: bool) -> LmdbResult<()> {
         unsafe {
-            lmdb_result(ffi::mdb_env_sync(self.env(), if force { 1 } else { 0 }))
+            lmdb_result(mdb_env_sync(self.env(), if force { 1 } else { 0 }))
         }
     }
 
@@ -66,13 +120,13 @@ impl Environment {
     /// handle value. Usually it's better to set a bigger `EnvironmentBuilder::set_max_dbs`, unless
     /// that value would be large.
     pub unsafe fn close_db(&self, db: Database) {
-        ffi::mdb_dbi_close(self.env, db.dbi())
+        mdb_dbi_close(self.env, db.dbi())
     }
 }
 
 impl Drop for Environment {
     fn drop(&mut self) {
-        unsafe { ffi::mdb_env_close(self.env) }
+        unsafe { mdb_env_close(self.env) }
     }
 }
 
@@ -81,7 +135,7 @@ impl Drop for Environment {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Options for opening or creating an environment.
-#[deriving(Show, PartialEq, Eq)]
+#[deriving(Show, PartialEq, Eq, Copy, Clone)]
 pub struct EnvironmentBuilder {
     flags: EnvironmentFlags,
     max_readers: Option<c_uint>,
@@ -95,26 +149,27 @@ impl EnvironmentBuilder {
     pub fn open(&self, path: &Path, mode: FilePermission) -> LmdbResult<Environment> {
         let mut env: *mut MDB_env = ptr::null_mut();
         unsafe {
-            lmdb_try!(ffi::mdb_env_create(&mut env));
+            lmdb_try!(mdb_env_create(&mut env));
             if let Some(max_readers) = self.max_readers {
-                lmdb_try_with_cleanup!(ffi::mdb_env_set_maxreaders(env, max_readers),
-                                       ffi::mdb_env_close(env))
+                lmdb_try_with_cleanup!(mdb_env_set_maxreaders(env, max_readers),
+                                       mdb_env_close(env))
             }
             if let Some(max_dbs) = self.max_dbs {
-                lmdb_try_with_cleanup!(ffi::mdb_env_set_maxdbs(env, max_dbs),
-                                       ffi::mdb_env_close(env))
+                lmdb_try_with_cleanup!(mdb_env_set_maxdbs(env, max_dbs),
+                                       mdb_env_close(env))
             }
             if let Some(map_size) = self.map_size {
-                lmdb_try_with_cleanup!(ffi::mdb_env_set_mapsize(env, map_size),
-                                       ffi::mdb_env_close(env))
+                lmdb_try_with_cleanup!(mdb_env_set_mapsize(env, map_size),
+                                       mdb_env_close(env))
             }
-            lmdb_try_with_cleanup!(ffi::mdb_env_open(env,
+            lmdb_try_with_cleanup!(mdb_env_open(env,
                                                      path.to_c_str().as_ptr(),
                                                      self.flags.bits(),
                                                      mode.bits() as mode_t),
-                                   ffi::mdb_env_close(env));
+                                   mdb_env_close(env));
         }
-        Ok(Environment { env: env })
+        Ok(Environment { env: env,
+                         dbi_open_mutex: Mutex::new(()) })
     }
 
     pub fn set_flags(&mut self, flags: EnvironmentFlags) -> &mut EnvironmentBuilder {
@@ -169,7 +224,7 @@ mod test {
 
     use std::io;
 
-    use flags;
+    use ffi::*;
     use super::*;
 
     #[test]
@@ -177,7 +232,7 @@ mod test {
         let dir = io::TempDir::new("test").unwrap();
 
         // opening non-existent env with read-only should fail
-        assert!(Environment::new().set_flags(flags::MDB_RDONLY)
+        assert!(Environment::new().set_flags(MDB_RDONLY)
                                   .open(dir.path(), io::USER_RWX)
                                   .is_err());
 
@@ -185,7 +240,7 @@ mod test {
         assert!(Environment::new().open(dir.path(), io::USER_RWX).is_ok());
 
         // opening env with read-only should not fail
-        assert!(Environment::new().set_flags(flags::MDB_RDONLY)
+        assert!(Environment::new().set_flags(MDB_RDONLY)
                                   .open(dir.path(), io::USER_RWX)
                                   .is_ok());
     }
@@ -197,23 +252,44 @@ mod test {
 
         {
             // Mutable env, mutable txn
-            assert!(env.begin_txn(flags::EnvironmentFlags::empty()).is_ok());
+            assert!(env.begin_write_txn().is_ok());
         } {
             // Mutable env, read-only txn
-            assert!(env.begin_txn(flags::MDB_RDONLY).is_ok());
+            assert!(env.begin_read_txn().is_ok());
         } {
             // Read-only env, mutable txn
-            let env = Environment::new().set_flags(flags::MDB_RDONLY)
+            let env = Environment::new().set_flags(MDB_RDONLY)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
-            assert!(env.begin_txn(flags::EnvironmentFlags::empty()).is_err());
+            assert!(env.begin_write_txn().is_err());
         } {
             // Read-only env, read-only txn
-            let env = Environment::new().set_flags(flags::MDB_RDONLY)
+            let env = Environment::new().set_flags(MDB_RDONLY)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
-            assert!(env.begin_txn(flags::MDB_RDONLY).is_ok());
+            assert!(env.begin_read_txn().is_ok());
         }
+    }
+
+    #[test]
+    fn test_open_db() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().set_max_dbs(10)
+                                    .open(dir.path(), io::USER_RWX)
+                                    .unwrap();
+        assert!(env.open_db(None).is_ok());
+        assert!(env.open_db(Some("testdb")).is_err());
+    }
+
+    #[test]
+    fn test_create_db() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().set_max_dbs(10)
+                                    .open(dir.path(), io::USER_RWX)
+                                    .unwrap();
+        assert!(env.open_db(Some("testdb")).is_err());
+        assert!(env.create_db(Some("testdb"), DatabaseFlags::empty()).is_ok());
+        assert!(env.open_db(Some("testdb")).is_ok())
     }
 
     #[test]
@@ -223,7 +299,7 @@ mod test {
             let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
             assert!(env.sync(true).is_ok());
         } {
-            let env = Environment::new().set_flags(flags::MDB_RDONLY)
+            let env = Environment::new().set_flags(MDB_RDONLY)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
             assert!(env.sync(true).is_ok());

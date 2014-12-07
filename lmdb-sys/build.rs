@@ -13,6 +13,6 @@ fn main() {
         gcc::compile_library("liblmdb.a",
                              &Default::default(),
                              &[mdb.join("mdb.c").as_str().unwrap(),
-                               mdb.join("midl.c").as_str().unwrap()])
+                               mdb.join("midl.c").as_str().unwrap()]);
     }
 }

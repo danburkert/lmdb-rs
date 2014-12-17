@@ -3,11 +3,10 @@ use std::{mem, ptr, raw};
 use std::kinds::marker;
 
 use database::Database;
-use error::{LmdbResult, lmdb_result};
+use error::{LmdbResult, lmdb_result, LmdbError};
 use ffi;
 use ffi::{MDB_cursor, mdb_cursor_open, MDB_val, WriteFlags};
 use transaction::Transaction;
-
 
 /// An LMDB cursor.
 pub trait Cursor<'txn> {
@@ -22,10 +21,10 @@ pub trait ReadCursor<'txn> : Cursor<'txn> {
     /// Retrieves a key/data pair from the cursor. Depending on the cursor op, the current key is
     /// returned.
     fn get(&self,
-               key: Option<&[u8]>,
-               data: Option<&[u8]>,
-               op: c_uint)
-               -> LmdbResult<(Option<&'txn [u8]>, &'txn [u8])> {
+           key: Option<&[u8]>,
+           data: Option<&[u8]>,
+           op: c_uint)
+           -> LmdbResult<(Option<&'txn [u8]>, &'txn [u8])> {
         unsafe {
             let mut key_val = slice_to_val(key);
             let mut data_val = slice_to_val(data);
@@ -176,17 +175,176 @@ unsafe fn val_to_slice<'a>(val: MDB_val) -> &'a [u8] {
     })
 }
 
+pub struct Items<'txn> {
+    cursor: *mut MDB_cursor,
+    op: c_uint,
+    next_op: c_uint,
+}
+
+impl <'txn> Items<'txn> {
+
+    /// Creates a new read-only cursor in the given database and transaction. Prefer using
+    /// `WriteTransaction::open_write_cursor()`.
+    pub fn new(txn: &'txn Transaction, db: Database) -> LmdbResult<Items<'txn>> {
+        let mut cursor: *mut MDB_cursor = ptr::null_mut();
+        unsafe {
+            // Create the cursor
+            try!(lmdb_result(mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor)));
+        }
+        Ok(Items { cursor: cursor, op: ffi::MDB_FIRST, next_op: ffi::MDB_NEXT })
+    }
+}
+
+impl <'txn> Iterator<(&'txn [u8], &'txn [u8])> for Items<'txn> {
+
+    fn next(&mut self) -> Option<(&'txn [u8], &'txn [u8])> {
+        let mut key = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+        let mut data = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+
+        unsafe {
+            let err_code = ffi::mdb_cursor_get(self.cursor, &mut key, &mut data, self.op);
+            if err_code == ffi::MDB_NOTFOUND {
+                None
+            } else {
+                // The documentation and a quick reading of mdb_cursor_get say that mdb_cursor_get
+                // may only fail with MDB_NOTFOUND and MDB_EINVAL (and we shouldn't be passing in
+                // invalid parameters).
+                debug_assert!(err_code == 0, "Unexpected error {}.", LmdbError::from_err_code(err_code));
+
+                // Seek to the next item
+                self.op = self.next_op;
+
+                Some((val_to_slice(key), val_to_slice(data)))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
 
     use libc::{c_void, size_t, c_uint};
     use std::{io, ptr};
+    use test::{Bencher, black_box};
+    use collections::BTreeMap;
 
     use transaction::*;
     use environment::*;
     use error::{LmdbResult, lmdb_result};
     use ffi::*;
     use super::*;
+
+    #[test]
+    fn test_items() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let db = env.open_db(None).unwrap();
+
+        {
+            let mut txn = env.begin_write_txn().unwrap();
+            txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
+            txn.put(db, b"key2", b"val2", WriteFlags::empty()).unwrap();
+            txn.put(db, b"key3", b"val3", WriteFlags::empty()).unwrap();
+            txn.commit().unwrap();
+        }
+
+        let txn = env.begin_read_txn().unwrap();
+        let iter = txn.iter(db).unwrap();
+
+        let items: Vec<(&[u8], &[u8])> = iter.collect();
+        assert_eq!(vec!((b"key1", b"val1"),
+                        (b"key2", b"val2"),
+                        (b"key3", b"val3")),
+                    items);
+    }
+
+    fn bench_items(b: &mut Bencher, n: uint) {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let db = env.open_db(None).unwrap();
+
+        {
+            let mut txn = env.begin_write_txn().unwrap();
+            for i in range(0, n) {
+                txn.put(db, format!("key{}", i).as_bytes(), format!("val{}", i).as_bytes(), WriteFlags::empty()).unwrap();
+            }
+            txn.commit().unwrap();
+        }
+
+        let txn = env.begin_read_txn().unwrap();
+        b.iter(|| {
+            for item in txn.iter(db).unwrap() {
+                black_box(item);
+            }
+        });
+    }
+
+    fn bench_cursor(b: &mut Bencher, n: uint) {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let db = env.open_db(None).unwrap();
+
+        {
+            let mut txn = env.begin_write_txn().unwrap();
+            for i in range(0, n) {
+                txn.put(db, format!("key{}", i).as_bytes(), format!("val{}", i).as_bytes(), WriteFlags::empty()).unwrap();
+            }
+            txn.commit().unwrap();
+        }
+
+        let txn = env.begin_read_txn().unwrap();
+        b.iter(|| {
+            for item in txn.iter(db).unwrap() {
+                black_box(item);
+            }
+        });
+    }
+
+    fn bench_btree(b: &mut Bencher, n: uint) {
+        let mut btree = BTreeMap::new();
+
+        {
+            for i in range(0, n) {
+                btree.insert(format!("key{}", i), format!("val{}", i));
+            }
+        }
+
+        b.iter(|| {
+            for item in btree.iter() {
+                black_box(item);
+            }
+        });
+    }
+
+    #[bench]
+    fn bench_items_100(b: &mut Bencher) {
+        bench_items(b, 100);
+    }
+
+    #[bench]
+    fn bench_items_500(b: &mut Bencher) {
+        bench_items(b, 500);
+    }
+
+    #[bench]
+    fn bench_items_1000(b: &mut Bencher) {
+        bench_items(b, 1000);
+    }
+
+    #[bench]
+    fn bench_btree_100(b: &mut Bencher) {
+        bench_btree(b, 100);
+    }
+
+    #[bench]
+    fn bench_btree_500(b: &mut Bencher) {
+        bench_btree(b, 500);
+    }
+
+    #[bench]
+    fn bench_btree_1000(b: &mut Bencher) {
+        bench_btree(b, 1000);
+    }
 
     #[test]
     fn test_get() {

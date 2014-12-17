@@ -3,7 +3,7 @@ use std::{mem, ptr, raw};
 use std::kinds::marker;
 use std::io::BufWriter;
 
-use cursor::{RoCursor, RwCursor};
+use cursor::{RoCursor, RwCursor, Items};
 use environment::Environment;
 use database::Database;
 use error::{LmdbResult, lmdb_result};
@@ -80,6 +80,13 @@ pub trait ReadTransaction<'env> : Transaction<'env> {
     fn open_read_cursor<'txn>(&'txn self, db: Database) -> LmdbResult<RoCursor<'txn>> {
         RoCursor::new(self, db)
     }
+
+    /// Open a new read-only cursor on the given database.
+    fn iter<'txn>(&'txn self, db: Database) -> LmdbResult<Items<'txn>> {
+        Items::new(self, db)
+    }
+
+
 
     /// Gets the option flags for the given database in the transaction.
     fn db_flags(&self, db: Database) -> LmdbResult<DatabaseFlags> {

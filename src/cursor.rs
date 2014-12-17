@@ -293,9 +293,12 @@ mod test {
         }
 
         let txn = env.begin_read_txn().unwrap();
+        let cursor = txn.open_read_cursor(db).unwrap();
         b.iter(|| {
-            for item in txn.iter(db).unwrap() {
-                black_box(item);
+            black_box(cursor.get(None, None, MDB_FIRST).unwrap());
+
+            for _ in range(1, n) {
+                black_box(cursor.get(None, None, MDB_NEXT).unwrap());
             }
         });
     }
@@ -317,33 +320,18 @@ mod test {
     }
 
     #[bench]
-    fn bench_items_100(b: &mut Bencher) {
+    fn bench_items_0100(b: &mut Bencher) {
         bench_items(b, 100);
     }
 
     #[bench]
-    fn bench_items_500(b: &mut Bencher) {
-        bench_items(b, 500);
+    fn bench_cursor_0100(b: &mut Bencher) {
+        bench_cursor(b, 100);
     }
 
     #[bench]
-    fn bench_items_1000(b: &mut Bencher) {
-        bench_items(b, 1000);
-    }
-
-    #[bench]
-    fn bench_btree_100(b: &mut Bencher) {
+    fn bench_btree_0100(b: &mut Bencher) {
         bench_btree(b, 100);
-    }
-
-    #[bench]
-    fn bench_btree_500(b: &mut Bencher) {
-        bench_btree(b, 500);
-    }
-
-    #[bench]
-    fn bench_btree_1000(b: &mut Bencher) {
-        bench_btree(b, 1000);
     }
 
     #[test]

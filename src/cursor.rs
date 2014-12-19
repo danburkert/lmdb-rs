@@ -40,7 +40,7 @@ pub trait ReadCursor<'txn> : Cursor<'txn> {
     }
 
     /// Open a new read-only cursor on the given database.
-    fn iter<'t>(&'t mut self) -> Items<'t> {
+    fn iter(&mut self) -> Items<'txn> {
         Items::new(self)
     }
 }
@@ -221,12 +221,10 @@ impl <'txn> Iterator<(&'txn [u8], &'txn [u8])> for Items<'txn> {
 #[cfg(test)]
 mod test {
 
-    use libc::{c_void, size_t, c_uint};
     use std::{io, ptr};
     use test::{Bencher, black_box};
 
     use environment::*;
-    use error::{LmdbResult, lmdb_result};
     use ffi::*;
     use super::*;
     use transaction::*;
@@ -237,23 +235,21 @@ mod test {
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
+        let items = vec!((b"key1", b"val1"),
+                         (b"key2", b"val2"),
+                         (b"key3", b"val3"));
+
         {
             let mut txn = env.begin_write_txn().unwrap();
-            txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
-            txn.put(db, b"key2", b"val2", WriteFlags::empty()).unwrap();
-            txn.put(db, b"key3", b"val3", WriteFlags::empty()).unwrap();
+            for &(key, data) in items.iter() {
+                txn.put(db, key, data, WriteFlags::empty()).unwrap();
+            }
             txn.commit().unwrap();
         }
 
         let txn = env.begin_read_txn().unwrap();
         let mut cursor = txn.open_read_cursor(db).unwrap();
-        let iter = cursor.iter();
-
-        let items: Vec<(&[u8], &[u8])> = iter.collect();
-        assert_eq!(vec!((b"key1", b"val1"),
-                        (b"key2", b"val2"),
-                        (b"key3", b"val3")),
-                    items);
+        assert_eq!(items, cursor.iter().collect::<Vec<(&[u8], &[u8])>>());
     }
 
     #[test]
@@ -354,77 +350,6 @@ mod test {
         assert!(cursor.get(None, None, MDB_NEXT_MULTIPLE).is_err());
     }
 
-    /// Checks assumptions about which get operations return keys.
-    #[test]
-    fn test_get_keys() {
-        let dir = io::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
-
-        unsafe fn slice_to_val(slice: Option<&[u8]>) -> MDB_val {
-            match slice {
-                Some(slice) =>
-                    MDB_val { mv_size: slice.len() as size_t,
-                              mv_data: slice.as_ptr() as *mut c_void },
-                None =>
-                    MDB_val { mv_size: 0,
-                              mv_data: ptr::null_mut() },
-            }
-        }
-
-        /// Returns true if the cursor get sets the key.
-        fn sets_key(cursor: &Cursor,
-                    key: Option<&[u8]>,
-                    data: Option<&[u8]>,
-                    op: c_uint)
-                    -> LmdbResult<bool> {
-            unsafe {
-                let mut key_val = slice_to_val(key);
-                let mut data_val = slice_to_val(data);
-                let key_ptr = key_val.mv_data;
-                try!(lmdb_result(mdb_cursor_get(cursor.cursor(),
-                                                &mut key_val,
-                                                &mut data_val,
-                                                op)));
-                Ok(key_ptr != key_val.mv_data)
-            }
-        }
-        let db = env.create_db(None, MDB_DUPSORT | MDB_DUPFIXED).unwrap();
-
-        let mut txn = env.begin_write_txn().unwrap();
-        txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key1", b"val2", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key1", b"val3", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key2", b"val4", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key2", b"val5", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key2", b"val6", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key3", b"val7", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key3", b"val8", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key3", b"val9", WriteFlags::empty()).unwrap();
-
-        let cursor = txn.open_read_cursor(db).unwrap();
-        assert!(sets_key(&cursor, None, None, MDB_FIRST).unwrap());
-        assert!(!sets_key(&cursor, None, None, MDB_FIRST_DUP).unwrap());
-        assert!(!sets_key(&cursor, Some(b"key2"), Some(b"val5"), MDB_GET_BOTH).unwrap());
-        assert!(!sets_key(&cursor, Some(b"key2"), Some(b"val"), MDB_GET_BOTH_RANGE).unwrap());
-        assert!(sets_key(&cursor, None, None, MDB_GET_CURRENT).unwrap());
-        assert!(!sets_key(&cursor, None, None, MDB_GET_MULTIPLE).unwrap());
-        assert!(sets_key(&cursor, None, None, MDB_LAST).unwrap());
-        assert!(!sets_key(&cursor, None, None, MDB_LAST_DUP).unwrap());
-        sets_key(&cursor, None, None, MDB_FIRST).unwrap();
-        assert!(sets_key(&cursor, None, None, MDB_NEXT).unwrap());
-        assert!(sets_key(&cursor, None, None, MDB_NEXT_DUP).unwrap());
-        sets_key(&cursor, None, None, MDB_FIRST).unwrap();
-        assert!(sets_key(&cursor, None, None, MDB_NEXT_MULTIPLE).unwrap());
-        assert!(sets_key(&cursor, None, None, MDB_NEXT_NODUP).unwrap());
-        assert!(sets_key(&cursor, None, None, MDB_PREV).unwrap());
-        sets_key(&cursor, None, None, MDB_LAST).unwrap();
-        assert!(sets_key(&cursor, None, None, MDB_PREV_DUP).unwrap());
-        assert!(sets_key(&cursor, None, None, MDB_PREV_NODUP).unwrap());
-        assert!(!sets_key(&cursor, Some(b"key2"), None, MDB_SET).unwrap());
-        assert!(sets_key(&cursor, Some(b"key2"), None, MDB_SET_KEY).unwrap());
-        assert!(sets_key(&cursor, Some(b"key2"), None, MDB_SET_RANGE).unwrap());
-    }
-
     #[test]
     fn test_put_del() {
         let dir = io::TempDir::new("test").unwrap();
@@ -446,7 +371,7 @@ mod test {
                    cursor.get(None, None, MDB_LAST).unwrap());
     }
 
-    fn get_bench_ctx<'a>(num_rows: u32) -> (io::TempDir, Environment) {
+    fn setup_bench_db<'a>(num_rows: u32) -> (io::TempDir, Environment) {
         let dir = io::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
 
@@ -454,7 +379,11 @@ mod test {
             let db = env.open_db(None).unwrap();
             let mut txn = env.begin_write_txn().unwrap();
             for i in range(0, num_rows) {
-                txn.put(db, format!("key{}", i).as_bytes(), format!("val{}", i).as_bytes(), WriteFlags::empty()).unwrap();
+                txn.put(db,
+                        format!("key{}", i).as_bytes(),
+                        format!("val{}", i).as_bytes(),
+                        WriteFlags::empty())
+                    .unwrap();
             }
             txn.commit().unwrap();
         }
@@ -465,7 +394,7 @@ mod test {
     #[bench]
     fn bench_seq_iter(b: &mut Bencher) {
         let n = 100;
-        let (_dir, env) = get_bench_ctx(n);
+        let (_dir, env) = setup_bench_db(n);
         let db = env.open_db(None).unwrap();
         let txn = env.begin_read_txn().unwrap();
 
@@ -473,10 +402,12 @@ mod test {
             let mut cursor = txn.open_read_cursor(db).unwrap();
             let mut i = 0;
             let mut count = 0u32;
+
             for (key, data) in cursor.iter() {
                 i = i + key.len() + data.len();
                 count = count + 1;
             }
+
             black_box(i);
             assert_eq!(count, n);
         });
@@ -486,7 +417,7 @@ mod test {
     #[bench]
     fn bench_seq_cursor(b: &mut Bencher) {
         let n = 100;
-        let (_dir, env) = get_bench_ctx(n);
+        let (_dir, env) = setup_bench_db(n);
         let db = env.open_db(None).unwrap();
         let txn = env.begin_read_txn().unwrap();
 
@@ -509,7 +440,7 @@ mod test {
     #[bench]
     fn bench_seq_raw(b: &mut Bencher) {
         let n = 100;
-        let (_dir, env) = get_bench_ctx(n);
+        let (_dir, env) = setup_bench_db(n);
         let db = env.open_db(None).unwrap();
 
         let dbi: MDB_dbi = db.dbi();

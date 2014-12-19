@@ -13,7 +13,6 @@ extern crate "lmdb-sys" as ffi;
 extern crate test;
 extern crate collections;
 
-
 pub use cursor::Cursor;
 pub use database::Database;
 pub use environment::{Environment, EnvironmentBuilder};

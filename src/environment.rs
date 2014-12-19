@@ -110,17 +110,25 @@ impl Environment {
 
     /// Close a database handle. Normally unnecessary.
     ///
-    /// This call is not mutex protected. Handles should only be closed by a single thread, and only
-    /// if no other threads are going to reference the database handle or one of its cursors any
-    /// further. Do not close a handle if an existing transaction has modified its database. Doing
-    /// so can cause misbehavior from database corruption to errors like `MDB_BAD_VALSIZE` (since the
-    /// DB name is gone).
-    ///
     /// Closing a database handle is not necessary, but lets `Transaction::open_database` reuse the
     /// handle value. Usually it's better to set a bigger `EnvironmentBuilder::set_max_dbs`, unless
     /// that value would be large.
-    pub unsafe fn close_db(&self, db: Database) {
-        mdb_dbi_close(self.env, db.dbi())
+    pub fn close_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
+        let db = try!(self.open_db(name));
+        unsafe { mdb_dbi_close(self.env, db.dbi()) };
+        Ok(())
+    }
+
+    pub fn clear_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
+        let db = try!(self.open_db(name));
+        let txn = try!(self.begin_write_txn());
+        unsafe { lmdb_result(mdb_drop(txn.txn(), db.dbi(), 0)) }
+    }
+
+    pub fn drop_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
+        let db = try!(self.open_db(name));
+        let txn = try!(self.begin_write_txn());
+        unsafe { lmdb_result(mdb_drop(txn.txn(), db.dbi(), 1)) }
     }
 }
 
@@ -236,10 +244,10 @@ mod test {
                                   .open(dir.path(), io::USER_RWX)
                                   .is_err());
 
-        // opening non-existent env should not fail
+        // opening non-existent env should succeed
         assert!(Environment::new().open(dir.path(), io::USER_RWX).is_ok());
 
-        // opening env with read-only should not fail
+        // opening env with read-only should succeed
         assert!(Environment::new().set_flags(MDB_RDONLY)
                                   .open(dir.path(), io::USER_RWX)
                                   .is_ok());
@@ -248,25 +256,20 @@ mod test {
     #[test]
     fn test_begin_txn() {
         let dir = io::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
 
-        {
-            // Mutable env, mutable txn
+        { // writable environment
+            let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+
             assert!(env.begin_write_txn().is_ok());
-        } {
-            // Mutable env, read-only txn
             assert!(env.begin_read_txn().is_ok());
-        } {
-            // Read-only env, mutable txn
+        }
+
+        { // read-only environment
             let env = Environment::new().set_flags(MDB_RDONLY)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
+
             assert!(env.begin_write_txn().is_err());
-        } {
-            // Read-only env, read-only txn
-            let env = Environment::new().set_flags(MDB_RDONLY)
-                                        .open(dir.path(), io::USER_RWX)
-                                        .unwrap();
             assert!(env.begin_read_txn().is_ok());
         }
     }
@@ -274,9 +277,10 @@ mod test {
     #[test]
     fn test_open_db() {
         let dir = io::TempDir::new("test").unwrap();
-        let env = Environment::new().set_max_dbs(10)
+        let env = Environment::new().set_max_dbs(1)
                                     .open(dir.path(), io::USER_RWX)
                                     .unwrap();
+
         assert!(env.open_db(None).is_ok());
         assert!(env.open_db(Some("testdb")).is_err());
     }
@@ -284,7 +288,7 @@ mod test {
     #[test]
     fn test_create_db() {
         let dir = io::TempDir::new("test").unwrap();
-        let env = Environment::new().set_max_dbs(10)
+        let env = Environment::new().set_max_dbs(11)
                                     .open(dir.path(), io::USER_RWX)
                                     .unwrap();
         assert!(env.open_db(Some("testdb")).is_err());

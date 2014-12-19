@@ -38,6 +38,11 @@ pub trait ReadCursor<'txn> : Cursor<'txn> {
             Ok((key_out, data_out))
         }
     }
+
+    /// Open a new read-only cursor on the given database.
+    fn iter<'t>(&'t mut self) -> Items<'t> {
+        Items::new(self)
+    }
 }
 
 pub trait WriteCursor<'txn> : ReadCursor<'txn> {
@@ -183,15 +188,9 @@ pub struct Items<'txn> {
 
 impl <'txn> Items<'txn> {
 
-    /// Creates a new read-only cursor in the given database and transaction. Prefer using
-    /// `WriteTransaction::open_write_cursor()`.
-    pub fn new(txn: &'txn Transaction, db: Database) -> LmdbResult<Items<'txn>> {
-        let mut cursor: *mut MDB_cursor = ptr::null_mut();
-        unsafe {
-            // Create the cursor
-            try!(lmdb_result(mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor)));
-        }
-        Ok(Items { cursor: cursor, op: ffi::MDB_FIRST, next_op: ffi::MDB_NEXT })
+    /// Creates a new iterator backed by the given cursor.
+    fn new<'t>(cursor: &Cursor<'t>) -> Items<'t> {
+        Items { cursor: cursor.cursor(), op: ffi::MDB_FIRST, next_op: ffi::MDB_NEXT }
     }
 }
 
@@ -203,13 +202,13 @@ impl <'txn> Iterator<(&'txn [u8], &'txn [u8])> for Items<'txn> {
 
         unsafe {
             let err_code = ffi::mdb_cursor_get(self.cursor, &mut key, &mut data, self.op);
-            // Seek to the next item
+            // Set the operation for the next get
             self.op = self.next_op;
             if err_code == ffi::MDB_SUCCESS {
                 Some((val_to_slice(key), val_to_slice(data)))
             } else {
-                // The documentation says that mdb_cursor_get may fail with MDB_NOTFOUND and MDB_EINVAL
-                // (and we shouldn't be passing in invalid parameters).
+                // The documentation for mdb_cursor_get specifies that it may fail with MDB_NOTFOUND
+                // and MDB_EINVAL (and we shouldn't be passing in invalid parameters).
                 // TODO: validate that these are the only failures possible.
                 debug_assert!(err_code == ffi::MDB_NOTFOUND,
                               "Unexpected LMDB error {}.", LmdbError::from_err_code(err_code));
@@ -233,7 +232,7 @@ mod test {
     use transaction::*;
 
     #[test]
-    fn test_items() {
+    fn test_iter() {
         let dir = io::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
@@ -247,7 +246,8 @@ mod test {
         }
 
         let txn = env.begin_read_txn().unwrap();
-        let iter = txn.iter(db).unwrap();
+        let mut cursor = txn.open_read_cursor(db).unwrap();
+        let iter = cursor.iter();
 
         let items: Vec<(&[u8], &[u8])> = iter.collect();
         assert_eq!(vec!((b"key1", b"val1"),
@@ -255,7 +255,6 @@ mod test {
                         (b"key3", b"val3")),
                     items);
     }
-
 
     #[test]
     fn test_get() {
@@ -447,94 +446,92 @@ mod test {
                    cursor.get(None, None, MDB_LAST).unwrap());
     }
 
-
-    #[bench]
-    fn bench_items(b: &mut Bencher) {
-        let n = 100u32;
+    fn get_bench_ctx<'a>(num_rows: u32) -> (io::TempDir, Environment) {
         let dir = io::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
-        let db = env.open_db(None).unwrap();
 
         {
+            let db = env.open_db(None).unwrap();
             let mut txn = env.begin_write_txn().unwrap();
-            for i in range(0, n) {
+            for i in range(0, num_rows) {
                 txn.put(db, format!("key{}", i).as_bytes(), format!("val{}", i).as_bytes(), WriteFlags::empty()).unwrap();
             }
             txn.commit().unwrap();
         }
+        (dir, env)
+    }
 
+    /// Benchmark of iterator sequential read performance.
+    #[bench]
+    fn bench_seq_iter(b: &mut Bencher) {
+        let n = 100;
+        let (_dir, env) = get_bench_ctx(n);
+        let db = env.open_db(None).unwrap();
         let txn = env.begin_read_txn().unwrap();
+
         b.iter(|| {
+            let mut cursor = txn.open_read_cursor(db).unwrap();
             let mut i = 0;
-            for (key, data) in txn.iter(db).unwrap() {
+            let mut count = 0u32;
+            for (key, data) in cursor.iter() {
                 i = i + key.len() + data.len();
+                count = count + 1;
             }
             black_box(i);
+            assert_eq!(count, n);
         });
     }
 
+    /// Benchmark of cursor sequential read performance.
     #[bench]
-    fn bench_cursor(b: &mut Bencher) {
-        let n = 100u32;
-        let dir = io::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+    fn bench_seq_cursor(b: &mut Bencher) {
+        let n = 100;
+        let (_dir, env) = get_bench_ctx(n);
         let db = env.open_db(None).unwrap();
-
-        {
-            let mut txn = env.begin_write_txn().unwrap();
-            for i in range(0, n) {
-                txn.put(db, format!("key{}", i).as_bytes(), format!("val{}", i).as_bytes(), WriteFlags::empty()).unwrap();
-            }
-            txn.commit().unwrap();
-        }
-
         let txn = env.begin_read_txn().unwrap();
+
         b.iter(|| {
             let cursor = txn.open_read_cursor(db).unwrap();
             let mut i = 0;
+            let mut count = 0u32;
 
-            let (key_opt, val) = cursor.get(None, None, MDB_FIRST).unwrap();
-            i = i + key_opt.map(|key| key.len()).unwrap_or(0) + val.len();
-
-            for _ in range(1, n) {
-                let (key_opt, val) = cursor.get(None, None, MDB_NEXT).unwrap();
-                i = i + key_opt.map(|key| key.len()).unwrap_or(0) + val.len();
+            while let Ok((key_opt, val)) = cursor.get(None, None, MDB_NEXT) {
+                i += key_opt.map(|key| key.len()).unwrap_or(0) + val.len();
+                count += 1;
             }
+
             black_box(i);
+            assert_eq!(count, n);
         });
     }
 
+    /// Benchmark of raw LMDB sequential read performance (control).
     #[bench]
-    fn bench_raw(b: &mut Bencher) {
-        let n = 100u32;
-        let dir = io::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+    fn bench_seq_raw(b: &mut Bencher) {
+        let n = 100;
+        let (_dir, env) = get_bench_ctx(n);
         let db = env.open_db(None).unwrap();
-
-        {
-            let mut txn = env.begin_write_txn().unwrap();
-            for i in range(0, n) {
-                txn.put(db, format!("key{}", i).as_bytes(), format!("val{}", i).as_bytes(), WriteFlags::empty()).unwrap();
-            }
-            txn.commit().unwrap();
-        }
 
         let dbi: MDB_dbi = db.dbi();
         let _txn = env.begin_read_txn().unwrap();
         let txn = _txn.txn();
-
 
         let mut key = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
         let mut data = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
         let mut cursor: *mut MDB_cursor = ptr::null_mut();
 
         b.iter(|| unsafe {
-            assert_eq!(mdb_cursor_open(txn, dbi, &mut cursor), 0);
+            mdb_cursor_open(txn, dbi, &mut cursor);
             let mut i = 0;
+            let mut count = 0u32;
+
             while mdb_cursor_get(cursor, &mut key, &mut data, MDB_NEXT) == 0 {
-                i = i + key.mv_size + data.mv_size;
+                i += key.mv_size + data.mv_size;
+                count += 1;
             };
+
             black_box(i);
+            assert_eq!(count, n);
             mdb_cursor_close(cursor);
         });
     }

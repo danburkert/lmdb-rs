@@ -18,27 +18,27 @@ pub struct Database<'env> {
 
 impl <'env> Database<'env> {
 
-    pub unsafe fn open<'env>(txn: &ReadTransaction<'env>,
+    pub unsafe fn open<'e>(txn: &ReadTransaction<'e>,
                              name: Option<&str>)
-                             -> LmdbResult<Database<'env>> {
+                             -> LmdbResult<Database<'e>> {
         let c_name = name.map(|n| n.to_c_str());
         let name_ptr = if let Some(ref c_name) = c_name { c_name.as_ptr() } else { ptr::null() };
         let mut dbi: MDB_dbi = 0;
         try!(lmdb_result(mdb_dbi_open(txn.txn(), name_ptr, 0, &mut dbi)));
         Ok(Database { dbi: dbi,
-                      _marker: marker::ContravariantLifetime::<'env> })
+                      _marker: marker::ContravariantLifetime::<'e> })
     }
 
-    pub unsafe fn create<'env>(txn: &WriteTransaction<'env>,
+    pub unsafe fn create<'e>(txn: &WriteTransaction<'e>,
                                name: Option<&str>,
                                flags: DatabaseFlags)
-                               -> LmdbResult<Database<'env>> {
+                               -> LmdbResult<Database<'e>> {
         let c_name = name.map(|n| n.to_c_str());
         let name_ptr = if let Some(ref c_name) = c_name { c_name.as_ptr() } else { ptr::null() };
         let mut dbi: MDB_dbi = 0;
         try!(lmdb_result(mdb_dbi_open(txn.txn(), name_ptr, flags.bits() | MDB_CREATE, &mut dbi)));
         Ok(Database { dbi: dbi,
-                      _marker: marker::ContravariantLifetime::<'env> })
+                      _marker: marker::ContravariantLifetime::<'e> })
     }
 
     /// Returns the underlying LMDB database handle.

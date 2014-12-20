@@ -9,4 +9,4 @@ pub use constants::*;
 
 mod constants;
 
-bindgen!("../mdb/libraries/liblmdb/lmdb.h", match="lmdb.h", link="lmdb")
+bindgen!("../mdb/libraries/liblmdb/lmdb.h", match="lmdb.h", link="lmdb");

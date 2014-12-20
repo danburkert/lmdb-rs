@@ -17,7 +17,15 @@ pub use cursor::Cursor;
 pub use database::Database;
 pub use environment::{Environment, EnvironmentBuilder};
 pub use error::{LmdbResult, LmdbError};
-pub use transaction::{ReadTransaction, WriteTransaction, RoTransaction, RwTransaction};
+pub use transaction::{
+    ReadTransaction,
+    RoTransaction,
+    RwTransaction,
+    Transaction,
+    TransactionExt,
+    WriteTransaction,
+};
+pub use ffi::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 
 macro_rules! lmdb_try {
     ($expr:expr) => ({
@@ -45,3 +53,38 @@ mod database;
 mod environment;
 mod error;
 mod transaction;
+
+#[cfg(test)]
+mod test_utils {
+
+    use std::io;
+
+    use super::*;
+
+    pub fn get_key(n: u32) -> String {
+        format!("key{}", n)
+    }
+
+    pub fn get_data(n: u32) -> String {
+        format!("data{}", n)
+    }
+
+    pub fn setup_bench_db<'a>(num_rows: u32) -> (io::TempDir, Environment) {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+
+        {
+            let db = env.open_db(None).unwrap();
+            let mut txn = env.begin_write_txn().unwrap();
+            for i in range(0, num_rows) {
+                txn.put(db,
+                        get_key(i).as_bytes(),
+                        get_data(i).as_bytes(),
+                        WriteFlags::empty())
+                    .unwrap();
+            }
+            txn.commit().unwrap();
+        }
+        (dir, env)
+    }
+}

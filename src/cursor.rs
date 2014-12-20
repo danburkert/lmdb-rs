@@ -228,6 +228,7 @@ mod test {
     use ffi::*;
     use super::*;
     use transaction::*;
+    use test_utils::setup_bench_db;
 
     #[test]
     fn test_iter() {
@@ -371,28 +372,9 @@ mod test {
                    cursor.get(None, None, MDB_LAST).unwrap());
     }
 
-    fn setup_bench_db<'a>(num_rows: u32) -> (io::TempDir, Environment) {
-        let dir = io::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
-
-        {
-            let db = env.open_db(None).unwrap();
-            let mut txn = env.begin_write_txn().unwrap();
-            for i in range(0, num_rows) {
-                txn.put(db,
-                        format!("key{}", i).as_bytes(),
-                        format!("val{}", i).as_bytes(),
-                        WriteFlags::empty())
-                    .unwrap();
-            }
-            txn.commit().unwrap();
-        }
-        (dir, env)
-    }
-
     /// Benchmark of iterator sequential read performance.
     #[bench]
-    fn bench_seq_iter(b: &mut Bencher) {
+    fn bench_get_seq_iter(b: &mut Bencher) {
         let n = 100;
         let (_dir, env) = setup_bench_db(n);
         let db = env.open_db(None).unwrap();
@@ -415,7 +397,7 @@ mod test {
 
     /// Benchmark of cursor sequential read performance.
     #[bench]
-    fn bench_seq_cursor(b: &mut Bencher) {
+    fn bench_get_seq_cursor(b: &mut Bencher) {
         let n = 100;
         let (_dir, env) = setup_bench_db(n);
         let db = env.open_db(None).unwrap();
@@ -438,7 +420,7 @@ mod test {
 
     /// Benchmark of raw LMDB sequential read performance (control).
     #[bench]
-    fn bench_seq_raw(b: &mut Bencher) {
+    fn bench_get_seq_raw(b: &mut Bencher) {
         let n = 100;
         let (_dir, env) = setup_bench_db(n);
         let db = env.open_db(None).unwrap();

@@ -1,11 +1,19 @@
 env:
   global:
     - secure: LhiHXBKaxsubX45eMukb39IDKaM0mdMzE8Ow4DCnq/yFTZn22ju/H3nMawk0X74gCMXsrADErcBke/7+mHV5GgToqtKjr8RaZDwAmZtzDgdrvJlqy+w59WbvJKuPXYGN0dPiVSkt/fFGf7qGFjLj0DiGZHw05XmBSq+90Qn3Iqw=
+
 language: rust
+
+before_install:
+  - yes | sudo add-apt-repository "deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.4 main"
+  - yes | sudo add-apt-repository "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu precise main"
+  - sudo apt-get update
+install:
+  - sudo apt-get install --force-yes libclang-3.4-dev
 script:
-  - cargo build -v
+  - LIBCLANG_PATH=/usr/lib/llvm-3.4/lib cargo build --verbose
   - cargo test -v
   - cargo doc
-compiler: clang
+
 after_script:
   - mv target/doc . && curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh

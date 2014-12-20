@@ -6,5 +6,6 @@ script:
   - cargo build -v
   - cargo test -v
   - cargo doc
+compiler: clang
 after_script:
   - mv target/doc . && curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh

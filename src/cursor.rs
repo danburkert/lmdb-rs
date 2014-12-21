@@ -16,7 +16,7 @@ pub trait Cursor<'txn> {
     fn cursor(&self) -> *mut MDB_cursor;
 }
 
-pub trait ReadCursor<'txn> : Cursor<'txn> {
+pub trait CursorExt<'txn> : Cursor<'txn> {
 
     /// Retrieves a key/data pair from the cursor. Depending on the cursor op, the current key is
     /// returned.
@@ -45,41 +45,7 @@ pub trait ReadCursor<'txn> : Cursor<'txn> {
     }
 }
 
-pub trait WriteCursor<'txn> : ReadCursor<'txn> {
-
-    /// Puts a key/data pair into the database. The cursor will be positioned at the new data item,
-    /// or on failure usually near it.
-    fn put(&self,
-           key: &[u8],
-           data: &[u8],
-           flags: WriteFlags)
-           -> LmdbResult<()> {
-
-        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *mut c_void };
-        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
-                                                        mv_data: data.as_ptr() as *mut c_void };
-
-        unsafe {
-            lmdb_result(ffi::mdb_cursor_put(self.cursor(),
-                                            &mut key_val,
-                                            &mut data_val,
-                                            flags.bits()))
-        }
-    }
-
-    /// Deletes the current key/data pair.
-    ///
-    /// ### Flags
-    ///
-    /// `MDB_NODUPDATA` may be used to delete all data items for the current key, if the database
-    /// was opened with `MDB_DUPSORT`.
-    fn del(&self, flags: WriteFlags) -> LmdbResult<()> {
-        unsafe {
-            lmdb_result(ffi::mdb_cursor_del(self.cursor(), flags.bits()))
-        }
-    }
-}
+impl<'txn, T> CursorExt<'txn> for T where T: Cursor<'txn> {}
 
 /// A read-only cursor for navigating items within a database.
 pub struct RoCursor<'txn> {
@@ -94,8 +60,6 @@ impl <'txn> Cursor<'txn> for RoCursor<'txn> {
         self.cursor
     }
 }
-
-impl <'txn> ReadCursor<'txn> for RoCursor<'txn> { }
 
 #[unsafe_destructor]
 impl <'txn> Drop for RoCursor<'txn> {
@@ -135,9 +99,6 @@ impl <'txn> Cursor<'txn> for RwCursor<'txn> {
     }
 }
 
-impl <'txn> ReadCursor<'txn> for RwCursor<'txn> { }
-impl <'txn> WriteCursor<'txn> for RwCursor<'txn> { }
-
 #[unsafe_destructor]
 impl <'txn> Drop for RwCursor<'txn> {
     fn drop(&mut self) {
@@ -159,6 +120,37 @@ impl <'txn> RwCursor<'txn> {
             _no_send: marker::NoSend,
             _contravariant: marker::ContravariantLifetime::<'txn>,
         })
+    }
+
+    /// Puts a key/data pair into the database. The cursor will be positioned at the new data item,
+    /// or on failure usually near it.
+    pub fn put(&self,
+           key: &[u8],
+           data: &[u8],
+           flags: WriteFlags)
+           -> LmdbResult<()> {
+        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
+                                                       mv_data: key.as_ptr() as *mut c_void };
+        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
+                                                        mv_data: data.as_ptr() as *mut c_void };
+        unsafe {
+            lmdb_result(ffi::mdb_cursor_put(self.cursor(),
+                                            &mut key_val,
+                                            &mut data_val,
+                                            flags.bits()))
+        }
+    }
+
+    /// Deletes the current key/data pair.
+    ///
+    /// ### Flags
+    ///
+    /// `MDB_NODUPDATA` may be used to delete all data items for the current key, if the database
+    /// was opened with `MDB_DUPSORT`.
+    pub fn del(&self, flags: WriteFlags) -> LmdbResult<()> {
+        unsafe {
+            lmdb_result(ffi::mdb_cursor_del(self.cursor(), flags.bits()))
+        }
     }
 }
 

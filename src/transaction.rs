@@ -3,13 +3,13 @@ use std::{mem, ptr, raw};
 use std::kinds::marker;
 use std::io::BufWriter;
 
+use ffi;
+
 use cursor::{RoCursor, RwCursor};
 use environment::Environment;
 use database::Database;
 use error::{LmdbError, LmdbResult, lmdb_result};
-use ffi;
-use ffi::MDB_txn;
-use ffi::{DatabaseFlags, EnvironmentFlags, WriteFlags, MDB_RDONLY, MDB_RESERVE};
+use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 
 /// An LMDB transaction.
 ///
@@ -20,7 +20,7 @@ pub trait Transaction<'env> {
     ///
     /// The caller **must** ensure that the pointer is not used after the lifetime of the
     /// transaction.
-    fn txn(&self) -> *mut MDB_txn;
+    fn txn(&self) -> *mut ffi::MDB_txn;
 }
 
 /// Transaction extension methods.
@@ -90,7 +90,7 @@ impl<'env, T> TransactionExt<'env> for T where T: Transaction<'env> {}
 
 /// An LMDB read-only transaction.
 pub struct RoTransaction<'env> {
-    txn: *mut MDB_txn,
+    txn: *mut ffi::MDB_txn,
     _no_sync: marker::NoSync,
     _no_send: marker::NoSend,
     _contravariant: marker::ContravariantLifetime<'env>,
@@ -109,11 +109,11 @@ impl <'env> RoTransaction<'env> {
     /// `Environment::begin_ro_txn`.
     #[doc(hidden)]
     pub fn new(env: &'env Environment) -> LmdbResult<RoTransaction<'env>> {
-        let mut txn: *mut MDB_txn = ptr::null_mut();
+        let mut txn: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
             try!(lmdb_result(ffi::mdb_txn_begin(env.env(),
                                                 ptr::null_mut(),
-                                                MDB_RDONLY.bits(),
+                                                ffi::MDB_RDONLY,
                                                 &mut txn)));
             Ok(RoTransaction {
                 txn: txn,
@@ -141,13 +141,13 @@ impl <'env> RoTransaction<'env> {
 }
 
 impl <'env> Transaction<'env> for RoTransaction<'env> {
-    fn txn(&self) -> *mut MDB_txn {
+    fn txn(&self) -> *mut ffi::MDB_txn {
         self.txn
     }
 }
 
 pub struct InactiveTransaction<'env> {
-    txn: *mut MDB_txn,
+    txn: *mut ffi::MDB_txn,
     _no_sync: marker::NoSync,
     _no_send: marker::NoSend,
     _contravariant: marker::ContravariantLifetime<'env>,
@@ -179,7 +179,7 @@ impl <'env> InactiveTransaction<'env> {
 
 /// An LMDB read-write transaction.
 pub struct RwTransaction<'env> {
-    txn: *mut MDB_txn,
+    txn: *mut ffi::MDB_txn,
     _no_sync: marker::NoSync,
     _no_send: marker::NoSend,
     _contravariant: marker::ContravariantLifetime<'env>,
@@ -198,7 +198,7 @@ impl <'env> RwTransaction<'env> {
     /// `Environment::begin_ro_txn`.
     #[doc(hidden)]
     pub fn new(env: &'env Environment) -> LmdbResult<RwTransaction<'env>> {
-        let mut txn: *mut MDB_txn = ptr::null_mut();
+        let mut txn: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
             try!(lmdb_result(ffi::mdb_txn_begin(env.env(),
                                                 ptr::null_mut(),
@@ -259,7 +259,7 @@ impl <'env> RwTransaction<'env> {
                                           database.dbi(),
                                           &mut key_val,
                                           &mut data_val,
-                                          flags.bits() | MDB_RESERVE)));
+                                          flags.bits() | ffi::MDB_RESERVE)));
             let slice: &'txn mut [u8] =
                 mem::transmute(raw::Slice {
                     data: data_val.mv_data as *const u8,
@@ -313,7 +313,7 @@ impl <'env> RwTransaction<'env> {
 }
 
 impl <'env> Transaction<'env> for RwTransaction<'env> {
-    fn txn(&self) -> *mut MDB_txn {
+    fn txn(&self) -> *mut ffi::MDB_txn {
         self.txn
     }
 }
@@ -327,8 +327,10 @@ mod test {
     use std::sync::{Arc, Barrier, Future};
     use test::{Bencher, black_box};
 
-    use environment::*;
     use ffi::*;
+
+    use environment::*;
+    use flags::*;
     use super::*;
     use test_utils::*;
 

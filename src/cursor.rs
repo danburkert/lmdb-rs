@@ -2,10 +2,11 @@ use libc::{c_void, size_t, c_uint};
 use std::{mem, ptr, raw};
 use std::kinds::marker;
 
+use ffi;
+
 use database::Database;
 use error::{LmdbResult, lmdb_result, LmdbError};
-use ffi;
-use ffi::{MDB_cursor, mdb_cursor_open, MDB_val, WriteFlags};
+use flags::WriteFlags;
 use transaction::Transaction;
 
 /// An LMDB cursor.
@@ -13,9 +14,10 @@ pub trait Cursor<'txn> {
     /// Returns a raw pointer to the underlying LMDB cursor.
     ///
     /// The caller **must** ensure that the pointer is not used after the lifetime of the cursor.
-    fn cursor(&self) -> *mut MDB_cursor;
+    fn cursor(&self) -> *mut ffi::MDB_cursor;
 }
 
+/// Cursor extension methods.
 pub trait CursorExt<'txn> : Cursor<'txn> {
 
     /// Retrieves a key/data pair from the cursor. Depending on the cursor op, the current key is
@@ -49,14 +51,14 @@ impl<'txn, T> CursorExt<'txn> for T where T: Cursor<'txn> {}
 
 /// A read-only cursor for navigating items within a database.
 pub struct RoCursor<'txn> {
-    cursor: *mut MDB_cursor,
+    cursor: *mut ffi::MDB_cursor,
     _no_sync: marker::NoSync,
     _no_send: marker::NoSend,
     _contravariant: marker::ContravariantLifetime<'txn>,
 }
 
 impl <'txn> Cursor<'txn> for RoCursor<'txn> {
-    fn cursor(&self) -> *mut MDB_cursor {
+    fn cursor(&self) -> *mut ffi::MDB_cursor {
         self.cursor
     }
 }
@@ -74,8 +76,8 @@ impl <'txn> RoCursor<'txn> {
     /// `Transaction::open_cursor()`.
     #[doc(hidden)]
     pub fn new(txn: &'txn Transaction, db: Database) -> LmdbResult<RoCursor<'txn>> {
-        let mut cursor: *mut MDB_cursor = ptr::null_mut();
-        unsafe { try!(lmdb_result(mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
+        let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
+        unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
         Ok(RoCursor {
             cursor: cursor,
             _no_sync: marker::NoSync,
@@ -87,14 +89,14 @@ impl <'txn> RoCursor<'txn> {
 
 /// A read-only cursor for navigating items within a database.
 pub struct RwCursor<'txn> {
-    cursor: *mut MDB_cursor,
+    cursor: *mut ffi::MDB_cursor,
     _no_sync: marker::NoSync,
     _no_send: marker::NoSend,
     _contravariant: marker::ContravariantLifetime<'txn>,
 }
 
 impl <'txn> Cursor<'txn> for RwCursor<'txn> {
-    fn cursor(&self) -> *mut MDB_cursor {
+    fn cursor(&self) -> *mut ffi::MDB_cursor {
         self.cursor
     }
 }
@@ -112,8 +114,8 @@ impl <'txn> RwCursor<'txn> {
     /// `WriteTransaction::open_write_cursor()`.
     #[doc(hidden)]
     pub fn new(txn: &'txn Transaction, db: Database) -> LmdbResult<RwCursor<'txn>> {
-        let mut cursor: *mut MDB_cursor = ptr::null_mut();
-        unsafe { try!(lmdb_result(mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
+        let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
+        unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
         Ok(RwCursor {
             cursor: cursor,
             _no_sync: marker::NoSync,
@@ -154,18 +156,18 @@ impl <'txn> RwCursor<'txn> {
     }
 }
 
-unsafe fn slice_to_val(slice: Option<&[u8]>) -> MDB_val {
+unsafe fn slice_to_val(slice: Option<&[u8]>) -> ffi::MDB_val {
     match slice {
         Some(slice) =>
-            MDB_val { mv_size: slice.len() as size_t,
-                      mv_data: slice.as_ptr() as *mut c_void },
+            ffi::MDB_val { mv_size: slice.len() as size_t,
+                           mv_data: slice.as_ptr() as *mut c_void },
         None =>
-            MDB_val { mv_size: 0,
-                      mv_data: ptr::null_mut() },
+            ffi::MDB_val { mv_size: 0,
+                           mv_data: ptr::null_mut() },
     }
 }
 
-unsafe fn val_to_slice<'a>(val: MDB_val) -> &'a [u8] {
+unsafe fn val_to_slice<'a>(val: ffi::MDB_val) -> &'a [u8] {
     mem::transmute(raw::Slice {
         data: val.mv_data as *const u8,
         len: val.mv_size as uint
@@ -173,7 +175,7 @@ unsafe fn val_to_slice<'a>(val: MDB_val) -> &'a [u8] {
 }
 
 pub struct Items<'txn> {
-    cursor: *mut MDB_cursor,
+    cursor: *mut ffi::MDB_cursor,
     op: c_uint,
     next_op: c_uint,
 }
@@ -189,8 +191,8 @@ impl <'txn> Items<'txn> {
 impl <'txn> Iterator<(&'txn [u8], &'txn [u8])> for Items<'txn> {
 
     fn next(&mut self) -> Option<(&'txn [u8], &'txn [u8])> {
-        let mut key = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
-        let mut data = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+        let mut key = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+        let mut data = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
 
         unsafe {
             let err_code = ffi::mdb_cursor_get(self.cursor, &mut key, &mut data, self.op);
@@ -216,11 +218,13 @@ mod test {
     use std::{io, ptr};
     use test::{Bencher, black_box};
 
-    use environment::*;
     use ffi::*;
+
+    use environment::*;
+    use flags::*;
     use super::*;
+    use test_utils::*;
     use transaction::*;
-    use test_utils::setup_bench_db;
 
     #[test]
     fn test_iter() {

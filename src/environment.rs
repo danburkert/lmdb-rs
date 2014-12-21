@@ -3,16 +3,18 @@ use std::io::FilePermission;
 use std::ptr;
 use std::sync::Mutex;
 
+use ffi;
+
 use error::{LmdbResult, lmdb_result};
 use database::Database;
-use ffi::*;
 use transaction::{RoTransaction, RwTransaction, Transaction, TransactionExt};
+use flags::{DatabaseFlags, EnvironmentFlags};
 
 /// An LMDB environment.
 ///
 /// An environment supports multiple databases, all residing in the same shared-memory map.
 pub struct Environment {
-    env: *mut MDB_env,
+    env: *mut ffi::MDB_env,
     dbi_open_mutex: Mutex<()>,
 }
 
@@ -32,7 +34,7 @@ impl Environment {
     ///
     /// The caller **must** ensure that the pointer is not dereferenced after the lifetime of the
     /// environment.
-    pub fn env(&self) -> *mut MDB_env {
+    pub fn env(&self) -> *mut ffi::MDB_env {
         self.env
     }
 
@@ -81,7 +83,7 @@ impl Environment {
         let txn = try!(self.begin_read_txn());
         let mut flags: c_uint = 0;
         unsafe {
-            try!(lmdb_result(mdb_dbi_flags(txn.txn(), db.dbi(), &mut flags)));
+            try!(lmdb_result(ffi::mdb_dbi_flags(txn.txn(), db.dbi(), &mut flags)));
         }
         Ok(DatabaseFlags::from_bits(flags).unwrap())
     }
@@ -104,7 +106,7 @@ impl Environment {
     /// the environment was opened with `MDB_NOSYNC` or in part `MDB_NOMETASYNC`.
     pub fn sync(&self, force: bool) -> LmdbResult<()> {
         unsafe {
-            lmdb_result(mdb_env_sync(self.env(), if force { 1 } else { 0 }))
+            lmdb_result(ffi::mdb_env_sync(self.env(), if force { 1 } else { 0 }))
         }
     }
 
@@ -115,26 +117,26 @@ impl Environment {
     /// that value would be large.
     pub fn close_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
         let db = try!(self.open_db(name));
-        unsafe { mdb_dbi_close(self.env, db.dbi()) };
+        unsafe { ffi::mdb_dbi_close(self.env, db.dbi()) };
         Ok(())
     }
 
     pub fn clear_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
         let db = try!(self.open_db(name));
         let txn = try!(self.begin_write_txn());
-        unsafe { lmdb_result(mdb_drop(txn.txn(), db.dbi(), 0)) }
+        unsafe { lmdb_result(ffi::mdb_drop(txn.txn(), db.dbi(), 0)) }
     }
 
     pub fn drop_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
         let db = try!(self.open_db(name));
         let txn = try!(self.begin_write_txn());
-        unsafe { lmdb_result(mdb_drop(txn.txn(), db.dbi(), 1)) }
+        unsafe { lmdb_result(ffi::mdb_drop(txn.txn(), db.dbi(), 1)) }
     }
 }
 
 impl Drop for Environment {
     fn drop(&mut self) {
-        unsafe { mdb_env_close(self.env) }
+        unsafe { ffi::mdb_env_close(self.env) }
     }
 }
 
@@ -155,26 +157,26 @@ impl EnvironmentBuilder {
 
     /// Open an environment.
     pub fn open(&self, path: &Path, mode: FilePermission) -> LmdbResult<Environment> {
-        let mut env: *mut MDB_env = ptr::null_mut();
+        let mut env: *mut ffi::MDB_env = ptr::null_mut();
         unsafe {
-            lmdb_try!(mdb_env_create(&mut env));
+            lmdb_try!(ffi::mdb_env_create(&mut env));
             if let Some(max_readers) = self.max_readers {
-                lmdb_try_with_cleanup!(mdb_env_set_maxreaders(env, max_readers),
-                                       mdb_env_close(env))
+                lmdb_try_with_cleanup!(ffi::mdb_env_set_maxreaders(env, max_readers),
+                                       ffi::mdb_env_close(env))
             }
             if let Some(max_dbs) = self.max_dbs {
-                lmdb_try_with_cleanup!(mdb_env_set_maxdbs(env, max_dbs),
-                                       mdb_env_close(env))
+                lmdb_try_with_cleanup!(ffi::mdb_env_set_maxdbs(env, max_dbs),
+                                       ffi::mdb_env_close(env))
             }
             if let Some(map_size) = self.map_size {
-                lmdb_try_with_cleanup!(mdb_env_set_mapsize(env, map_size),
-                                       mdb_env_close(env))
+                lmdb_try_with_cleanup!(ffi::mdb_env_set_mapsize(env, map_size),
+                                       ffi::mdb_env_close(env))
             }
-            lmdb_try_with_cleanup!(mdb_env_open(env,
+            lmdb_try_with_cleanup!(ffi::mdb_env_open(env,
                                                      path.to_c_str().as_ptr(),
                                                      self.flags.bits(),
                                                      mode.bits() as mode_t),
-                                   mdb_env_close(env));
+                                   ffi::mdb_env_close(env));
         }
         Ok(Environment { env: env,
                          dbi_open_mutex: Mutex::new(()) })
@@ -232,7 +234,7 @@ mod test {
 
     use std::io;
 
-    use ffi::*;
+    use flags::*;
     use super::*;
 
     #[test]

@@ -22,6 +22,7 @@ pub use cursor::{
 pub use database::Database;
 pub use environment::{Environment, EnvironmentBuilder};
 pub use error::{LmdbResult, LmdbError};
+pub use flags::*;
 pub use transaction::{
     InactiveTransaction,
     RoTransaction,
@@ -29,7 +30,6 @@ pub use transaction::{
     Transaction,
     TransactionExt,
 };
-pub use ffi::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 
 macro_rules! lmdb_try {
     ($expr:expr) => ({
@@ -52,6 +52,7 @@ macro_rules! lmdb_try_with_cleanup {
     })
 }
 
+mod flags;
 mod cursor;
 mod database;
 mod environment;

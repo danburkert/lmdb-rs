@@ -1,8 +1,10 @@
 use std::kinds::marker;
 use std::ptr;
 
-use error::{LmdbResult, lmdb_result};
 use ffi::*;
+
+use error::{LmdbResult, lmdb_result};
+use flags::DatabaseFlags;
 use transaction::{RoTransaction, RwTransaction, Transaction};
 
 /// A handle to an individual database in an environment.

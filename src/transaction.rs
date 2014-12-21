@@ -131,11 +131,11 @@ pub trait WriteTransaction<'env> : ReadTransaction<'env> {
     /// Returns a `BufWriter` which can be used to write a value into the item at the given key
     /// and with the given length. The buffer must be completely filled by the caller.
     fn reserve<'txn>(&'txn mut self,
-                         database: Database,
-                         key: &[u8],
-                         len: size_t,
-                         flags: WriteFlags)
-                         -> LmdbResult<BufWriter<'txn>> {
+                     database: Database,
+                     key: &[u8],
+                     len: size_t,
+                     flags: WriteFlags)
+                     -> LmdbResult<BufWriter<'txn>> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: len,
@@ -164,10 +164,10 @@ pub trait WriteTransaction<'env> : ReadTransaction<'env> {
     /// data item will be deleted. This function will return `MDB_NOTFOUND` if the specified key/data
     /// pair is not in the database.
     fn del(&mut self,
-               database: Database,
-               key: &[u8],
-               data: Option<&[u8]>)
-               -> LmdbResult<()> {
+           database: Database,
+           key: &[u8],
+           data: Option<&[u8]>)
+           -> LmdbResult<()> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let data_val: Option<ffi::MDB_val> =
@@ -180,6 +180,21 @@ pub trait WriteTransaction<'env> : ReadTransaction<'env> {
                                      data_val.map(|mut data_val| &mut data_val as *mut _)
                                              .unwrap_or(ptr::null_mut())))
         }
+    }
+
+    /// Begins a new nested transaction inside of this transaction.
+    fn begin_nested_txn<'txn>(&'txn mut self) -> LmdbResult<RwTransaction<'txn>> {
+        let mut nested: *mut ffi::MDB_txn = ptr::null_mut();
+        unsafe {
+            let env: *mut ffi::MDB_env = ffi::mdb_txn_env(self.txn());
+            ffi::mdb_txn_begin(env, self.txn(), 0, &mut nested);
+        }
+        Ok(RwTransaction {
+            txn: nested,
+            _no_sync: marker::NoSync,
+            _no_send: marker::NoSend,
+            _contravariant: marker::ContravariantLifetime::<'env>,
+        })
     }
 }
 
@@ -425,6 +440,26 @@ mod test {
         let inactive = txn.reset();
         let active = inactive.renew().unwrap();
         assert!(active.get(db, b"key").is_ok());
+    }
+
+    #[test]
+    fn test_nested_txn() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let db = env.open_db(None).unwrap();
+
+        let mut txn = env.begin_write_txn().unwrap();
+        txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
+
+        {
+            let mut nested = txn.begin_nested_txn().unwrap();
+            nested.put(db, b"key2", b"val2", WriteFlags::empty()).unwrap();
+            assert_eq!(nested.get(db, b"key1").unwrap(), Some(b"val1"));
+            assert_eq!(nested.get(db, b"key2").unwrap(), Some(b"val2"));
+        }
+
+        assert_eq!(txn.get(db, b"key1").unwrap(), Some(b"val1"));
+        assert_eq!(txn.get(db, b"key2").unwrap(), None);
     }
 
     #[test]

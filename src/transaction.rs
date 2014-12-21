@@ -218,6 +218,21 @@ impl <'env> RoTransaction<'env> {
             })
         }
     }
+
+    pub fn reset(self) -> InactiveTransaction<'env> {
+        let txn = self.txn;
+        unsafe {
+            mem::forget(self);
+            ffi::mdb_txn_reset(txn)
+        };
+        InactiveTransaction {
+            txn: txn,
+            _no_sync: marker::NoSync,
+            _no_send: marker::NoSend,
+            _contravariant: marker::ContravariantLifetime::<'env>,
+        }
+
+    }
 }
 
 impl <'env> Transaction<'env> for RoTransaction<'env> {
@@ -226,8 +241,38 @@ impl <'env> Transaction<'env> for RoTransaction<'env> {
     }
 }
 
-//impl <'env> TransactionExt<'env> for RoTransaction<'env> { }
 impl <'env> ReadTransaction<'env> for RoTransaction<'env> { }
+
+pub struct InactiveTransaction<'env> {
+    txn: *mut MDB_txn,
+    _no_sync: marker::NoSync,
+    _no_send: marker::NoSend,
+    _contravariant: marker::ContravariantLifetime<'env>,
+}
+
+#[unsafe_destructor]
+impl <'env> Drop for InactiveTransaction<'env> {
+    fn drop(&mut self) {
+        unsafe { ffi::mdb_txn_abort(self.txn) }
+    }
+}
+
+impl <'env> InactiveTransaction<'env> {
+
+    pub fn renew(self) -> LmdbResult<RoTransaction<'env>> {
+        let txn = self.txn;
+        unsafe {
+            mem::forget(self);
+            try!(lmdb_result(ffi::mdb_txn_renew(txn)))
+        };
+        Ok(RoTransaction {
+            txn: txn,
+            _no_sync: marker::NoSync,
+            _no_send: marker::NoSend,
+            _contravariant: marker::ContravariantLifetime::<'env>,
+        })
+    }
+}
 
 /// An LMDB read-write transaction.
 pub struct RwTransaction<'env> {
@@ -279,7 +324,6 @@ impl <'env> WriteTransaction<'env> for RwTransaction<'env> { }
 #[cfg(test)]
 mod test {
 
-    use libc::{c_uint, c_void, size_t};
     use std::io;
     use std::ptr;
     use std::rand::{Rng, XorShiftRng};
@@ -363,6 +407,24 @@ mod test {
         let db = env.open_db(None).unwrap();
         let txn = env.begin_read_txn().unwrap();
         txn.get(db, b"key").is_err();
+    }
+
+    #[test]
+    fn test_inactive_txn() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let db = env.open_db(None).unwrap();
+
+        {
+            let mut txn = env.begin_write_txn().unwrap();
+            txn.put(db, b"key", b"val", WriteFlags::empty()).unwrap();
+            txn.commit().unwrap();
+        }
+
+        let txn = env.begin_read_txn().unwrap();
+        let inactive = txn.reset();
+        let active = inactive.renew().unwrap();
+        assert!(active.get(db, b"key").is_ok());
     }
 
     #[test]
@@ -506,9 +568,7 @@ mod test {
         XorShiftRng::new_unseeded().shuffle(items.as_mut_slice());
 
         b.iter(|| {
-            // TODO: change this to just a transaction renew, instead of a new transaction
             let mut txn = env.begin_write_txn().unwrap();
-            let mut i = 0u;
             for &(ref key, ref data) in items.iter() {
                 txn.put(db, key.as_bytes(), data.as_bytes(), WriteFlags::empty()).unwrap();
             }
@@ -533,7 +593,6 @@ mod test {
         let mut data_val: MDB_val = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
 
         b.iter(|| unsafe {
-            // TODO: change this to just a transaction renew, instead of a new transaction
             let mut txn: *mut MDB_txn = ptr::null_mut();
             mdb_txn_begin(env, ptr::null_mut(), 0, &mut txn);
 

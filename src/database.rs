@@ -3,7 +3,7 @@ use std::ptr;
 
 use error::{LmdbResult, lmdb_result};
 use ffi::*;
-use transaction::{Transaction, ReadTransaction, WriteTransaction};
+use transaction::{RoTransaction, RwTransaction, Transaction};
 
 /// A handle to an individual database in an environment.
 ///
@@ -18,9 +18,9 @@ pub struct Database<'env> {
 
 impl <'env> Database<'env> {
 
-    pub unsafe fn open<'e>(txn: &ReadTransaction<'e>,
-                             name: Option<&str>)
-                             -> LmdbResult<Database<'e>> {
+    pub unsafe fn open<'e>(txn: &RoTransaction<'e>,
+                           name: Option<&str>)
+                           -> LmdbResult<Database<'e>> {
         let c_name = name.map(|n| n.to_c_str());
         let name_ptr = if let Some(ref c_name) = c_name { c_name.as_ptr() } else { ptr::null() };
         let mut dbi: MDB_dbi = 0;
@@ -29,10 +29,10 @@ impl <'env> Database<'env> {
                       _marker: marker::ContravariantLifetime::<'e> })
     }
 
-    pub unsafe fn create<'e>(txn: &WriteTransaction<'e>,
-                               name: Option<&str>,
-                               flags: DatabaseFlags)
-                               -> LmdbResult<Database<'e>> {
+    pub unsafe fn create<'e>(txn: &RwTransaction<'e>,
+                             name: Option<&str>,
+                             flags: DatabaseFlags)
+                             -> LmdbResult<Database<'e>> {
         let c_name = name.map(|n| n.to_c_str());
         let name_ptr = if let Some(ref c_name) = c_name { c_name.as_ptr() } else { ptr::null() };
         let mut dbi: MDB_dbi = 0;

@@ -19,12 +19,10 @@ pub use environment::{Environment, EnvironmentBuilder};
 pub use error::{LmdbResult, LmdbError};
 pub use transaction::{
     InactiveTransaction,
-    ReadTransaction,
     RoTransaction,
     RwTransaction,
     Transaction,
     TransactionExt,
-    WriteTransaction,
 };
 pub use ffi::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 

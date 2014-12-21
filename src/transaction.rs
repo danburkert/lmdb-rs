@@ -43,14 +43,6 @@ pub trait TransactionExt<'env> : Transaction<'env> {
     fn abort(self) {
         // Abort should be performed in transaction destructors.
     }
-}
-
-impl<'env, T> TransactionExt<'env> for T where T: Transaction<'env> {}
-
-/// A read-only LMDB transaction.
-///
-/// All database read operations require a transaction.
-pub trait ReadTransaction<'env> : Transaction<'env> {
 
     /// Gets an item from a database.
     ///
@@ -94,109 +86,7 @@ pub trait ReadTransaction<'env> : Transaction<'env> {
     }
 }
 
-/// A read-write LMDB transaction.
-///
-/// All database operations require a transaction.
-pub trait WriteTransaction<'env> : ReadTransaction<'env> {
-
-    /// Open a new read-write cursor on the given database.
-    fn open_write_cursor<'txn>(&'txn mut self, db: Database) -> LmdbResult<RwCursor<'txn>> {
-        RwCursor::new(self, db)
-    }
-
-    /// Stores an item into a database.
-    ///
-    /// This function stores key/data pairs in the database. The default behavior is to enter the
-    /// new key/data pair, replacing any previously existing key if duplicates are disallowed, or
-    /// adding a duplicate data item if duplicates are allowed (`MDB_DUPSORT`).
-    fn put(&mut self,
-           database: Database,
-           key: &[u8],
-           data: &[u8],
-           flags: WriteFlags)
-           -> LmdbResult<()> {
-        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *mut c_void };
-        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
-                                                        mv_data: data.as_ptr() as *mut c_void };
-        unsafe {
-            lmdb_result(ffi::mdb_put(self.txn(),
-                                     database.dbi(),
-                                     &mut key_val,
-                                     &mut data_val,
-                                     flags.bits()))
-        }
-    }
-
-    /// Returns a `BufWriter` which can be used to write a value into the item at the given key
-    /// and with the given length. The buffer must be completely filled by the caller.
-    fn reserve<'txn>(&'txn mut self,
-                     database: Database,
-                     key: &[u8],
-                     len: size_t,
-                     flags: WriteFlags)
-                     -> LmdbResult<BufWriter<'txn>> {
-        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *mut c_void };
-        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: len,
-                                                        mv_data: ptr::null_mut::<c_void>() };
-        unsafe {
-            try!(lmdb_result(ffi::mdb_put(self.txn(),
-                                          database.dbi(),
-                                          &mut key_val,
-                                          &mut data_val,
-                                          flags.bits() | MDB_RESERVE)));
-            let slice: &'txn mut [u8] =
-                mem::transmute(raw::Slice {
-                    data: data_val.mv_data as *const u8,
-                    len: data_val.mv_size as uint
-                });
-            Ok(BufWriter::new(slice))
-        }
-    }
-
-    /// Deletes an item from a database.
-    ///
-    /// This function removes key/data pairs from the database. If the database does not support
-    /// sorted duplicate data items (`MDB_DUPSORT`) the data parameter is ignored. If the database
-    /// supports sorted duplicates and the data parameter is `None`, all of the duplicate data items
-    /// for the key will be deleted. Otherwise, if the data parameter is `Some` only the matching
-    /// data item will be deleted. This function will return `MDB_NOTFOUND` if the specified key/data
-    /// pair is not in the database.
-    fn del(&mut self,
-           database: Database,
-           key: &[u8],
-           data: Option<&[u8]>)
-           -> LmdbResult<()> {
-        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *mut c_void };
-        let data_val: Option<ffi::MDB_val> =
-            data.map(|data| ffi::MDB_val { mv_size: data.len() as size_t,
-                                           mv_data: data.as_ptr() as *mut c_void });
-        unsafe {
-            lmdb_result(ffi::mdb_del(self.txn(),
-                                     database.dbi(),
-                                     &mut key_val,
-                                     data_val.map(|mut data_val| &mut data_val as *mut _)
-                                             .unwrap_or(ptr::null_mut())))
-        }
-    }
-
-    /// Begins a new nested transaction inside of this transaction.
-    fn begin_nested_txn<'txn>(&'txn mut self) -> LmdbResult<RwTransaction<'txn>> {
-        let mut nested: *mut ffi::MDB_txn = ptr::null_mut();
-        unsafe {
-            let env: *mut ffi::MDB_env = ffi::mdb_txn_env(self.txn());
-            ffi::mdb_txn_begin(env, self.txn(), 0, &mut nested);
-        }
-        Ok(RwTransaction {
-            txn: nested,
-            _no_sync: marker::NoSync,
-            _no_send: marker::NoSend,
-            _contravariant: marker::ContravariantLifetime::<'env>,
-        })
-    }
-}
+impl<'env, T> TransactionExt<'env> for T where T: Transaction<'env> {}
 
 /// An LMDB read-only transaction.
 pub struct RoTransaction<'env> {
@@ -255,8 +145,6 @@ impl <'env> Transaction<'env> for RoTransaction<'env> {
         self.txn
     }
 }
-
-impl <'env> ReadTransaction<'env> for RoTransaction<'env> { }
 
 pub struct InactiveTransaction<'env> {
     txn: *mut MDB_txn,
@@ -324,6 +212,104 @@ impl <'env> RwTransaction<'env> {
             })
         }
     }
+
+    /// Open a new read-write cursor on the given database.
+    pub fn open_write_cursor<'txn>(&'txn mut self, db: Database) -> LmdbResult<RwCursor<'txn>> {
+        RwCursor::new(self, db)
+    }
+
+    /// Stores an item into a database.
+    ///
+    /// This function stores key/data pairs in the database. The default behavior is to enter the
+    /// new key/data pair, replacing any previously existing key if duplicates are disallowed, or
+    /// adding a duplicate data item if duplicates are allowed (`MDB_DUPSORT`).
+    pub fn put(&mut self,
+           database: Database,
+           key: &[u8],
+           data: &[u8],
+           flags: WriteFlags)
+           -> LmdbResult<()> {
+        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
+                                                       mv_data: key.as_ptr() as *mut c_void };
+        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
+                                                        mv_data: data.as_ptr() as *mut c_void };
+        unsafe {
+            lmdb_result(ffi::mdb_put(self.txn(),
+                                     database.dbi(),
+                                     &mut key_val,
+                                     &mut data_val,
+                                     flags.bits()))
+        }
+    }
+
+    /// Returns a `BufWriter` which can be used to write a value into the item at the given key
+    /// and with the given length. The buffer must be completely filled by the caller.
+    pub fn reserve<'txn>(&'txn mut self,
+                     database: Database,
+                     key: &[u8],
+                     len: size_t,
+                     flags: WriteFlags)
+                     -> LmdbResult<BufWriter<'txn>> {
+        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
+                                                       mv_data: key.as_ptr() as *mut c_void };
+        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: len,
+                                                        mv_data: ptr::null_mut::<c_void>() };
+        unsafe {
+            try!(lmdb_result(ffi::mdb_put(self.txn(),
+                                          database.dbi(),
+                                          &mut key_val,
+                                          &mut data_val,
+                                          flags.bits() | MDB_RESERVE)));
+            let slice: &'txn mut [u8] =
+                mem::transmute(raw::Slice {
+                    data: data_val.mv_data as *const u8,
+                    len: data_val.mv_size as uint
+                });
+            Ok(BufWriter::new(slice))
+        }
+    }
+
+    /// Deletes an item from a database.
+    ///
+    /// This function removes key/data pairs from the database. If the database does not support
+    /// sorted duplicate data items (`MDB_DUPSORT`) the data parameter is ignored. If the database
+    /// supports sorted duplicates and the data parameter is `None`, all of the duplicate data items
+    /// for the key will be deleted. Otherwise, if the data parameter is `Some` only the matching
+    /// data item will be deleted. This function will return `MDB_NOTFOUND` if the specified key/data
+    /// pair is not in the database.
+    pub fn del(&mut self,
+           database: Database,
+           key: &[u8],
+           data: Option<&[u8]>)
+           -> LmdbResult<()> {
+        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
+                                                       mv_data: key.as_ptr() as *mut c_void };
+        let data_val: Option<ffi::MDB_val> =
+            data.map(|data| ffi::MDB_val { mv_size: data.len() as size_t,
+                                           mv_data: data.as_ptr() as *mut c_void });
+        unsafe {
+            lmdb_result(ffi::mdb_del(self.txn(),
+                                     database.dbi(),
+                                     &mut key_val,
+                                     data_val.map(|mut data_val| &mut data_val as *mut _)
+                                             .unwrap_or(ptr::null_mut())))
+        }
+    }
+
+    /// Begins a new nested transaction inside of this transaction.
+    pub fn begin_nested_txn<'txn>(&'txn mut self) -> LmdbResult<RwTransaction<'txn>> {
+        let mut nested: *mut ffi::MDB_txn = ptr::null_mut();
+        unsafe {
+            let env: *mut ffi::MDB_env = ffi::mdb_txn_env(self.txn());
+            ffi::mdb_txn_begin(env, self.txn(), 0, &mut nested);
+        }
+        Ok(RwTransaction {
+            txn: nested,
+            _no_sync: marker::NoSync,
+            _no_send: marker::NoSend,
+            _contravariant: marker::ContravariantLifetime::<'env>,
+        })
+    }
 }
 
 impl <'env> Transaction<'env> for RwTransaction<'env> {
@@ -331,10 +317,6 @@ impl <'env> Transaction<'env> for RwTransaction<'env> {
         self.txn
     }
 }
-
-//impl <'env> TransactionExt<'env> for RwTransaction<'env> { }
-impl <'env> ReadTransaction<'env> for RwTransaction<'env> { }
-impl <'env> WriteTransaction<'env> for RwTransaction<'env> { }
 
 #[cfg(test)]
 mod test {

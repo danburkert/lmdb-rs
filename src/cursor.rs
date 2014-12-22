@@ -147,8 +147,8 @@ impl <'txn> RwCursor<'txn> {
     ///
     /// ### Flags
     ///
-    /// `NO_DUP_DATA` may be used to delete all data items for the current key, if the database
-    /// was opened with `DUP_SORT`.
+    /// `WriteFlags::NO_DUP_DATA` may be used to delete all data items for the current key, if the
+    /// database was opened with `DatabaseFlags::DUP_SORT`.
     pub fn del(&self, flags: WriteFlags) -> LmdbResult<()> {
         unsafe {
             lmdb_result(ffi::mdb_cursor_del(self.cursor(), flags.bits()))

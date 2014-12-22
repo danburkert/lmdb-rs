@@ -47,26 +47,24 @@ pub trait TransactionExt<'env> : Transaction<'env> {
     /// Gets an item from a database.
     ///
     /// This function retrieves the data associated with the given key in the database. If the
-    /// database supports duplicate keys (`MDB_DUPSORT`) then the first data item for the key will
-    /// be returned. Retrieval of other items requires the use of `Transaction::cursor_get`.
-    fn get<'txn>(&'txn self, database: Database, key: &[u8]) -> LmdbResult<Option<&'txn [u8]>> {
+    /// database supports duplicate keys (`DatabaseFlags::DUP_SORT`) then the first data item for
+    /// the key will be returned. Retrieval of other items requires the use of
+    /// `Transaction::cursor_get`. If the item is not in the database, then `LmdbError::NotFound`
+    /// will be returned.
+    fn get<'txn>(&'txn self, database: Database, key: &[u8]) -> LmdbResult<&'txn [u8]> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: 0,
                                                         mv_data: ptr::null_mut() };
         unsafe {
-            let err_code = ffi::mdb_get(self.txn(), database.dbi(), &mut key_val, &mut data_val);
-            if err_code == 0 {
-                let slice: &'txn [u8] =
-                    mem::transmute(raw::Slice {
+            match ffi::mdb_get(self.txn(), database.dbi(), &mut key_val, &mut data_val) {
+                ffi::MDB_SUCCESS => {
+                    Ok(mem::transmute(raw::Slice {
                         data: data_val.mv_data as *const u8,
                         len: data_val.mv_size as uint
-                    });
-                Ok(Some(slice))
-            } else if err_code == ffi::MDB_NOTFOUND {
-                Ok(None)
-            } else {
-                Err(LmdbError::from_err_code(err_code))
+                    }))
+                },
+                err_code => Err(LmdbError::from_err_code(err_code)),
             }
         }
     }
@@ -224,7 +222,7 @@ impl <'env> RwTransaction<'env> {
     ///
     /// This function stores key/data pairs in the database. The default behavior is to enter the
     /// new key/data pair, replacing any previously existing key if duplicates are disallowed, or
-    /// adding a duplicate data item if duplicates are allowed (`MDB_DUPSORT`).
+    /// adding a duplicate data item if duplicates are allowed (`DatabaseFlags::DUP_SORT`).
     pub fn put(&mut self,
            database: Database,
            key: &[u8],
@@ -274,11 +272,11 @@ impl <'env> RwTransaction<'env> {
     /// Deletes an item from a database.
     ///
     /// This function removes key/data pairs from the database. If the database does not support
-    /// sorted duplicate data items (`MDB_DUPSORT`) the data parameter is ignored. If the database
-    /// supports sorted duplicates and the data parameter is `None`, all of the duplicate data items
-    /// for the key will be deleted. Otherwise, if the data parameter is `Some` only the matching
-    /// data item will be deleted. This function will return `MDB_NOTFOUND` if the specified key/data
-    /// pair is not in the database.
+    /// sorted duplicate data items (`DatabaseFlags::DUP_SORT`) the data parameter is ignored.
+    /// If the database supports sorted duplicates and the data parameter is `None`, all of the
+    /// duplicate data items for the key will be deleted. Otherwise, if the data parameter is
+    /// `Some` only the matching data item will be deleted. This function will return
+    /// `LmdbError::NotFound` if the specified key/data pair is not in the database.
     pub fn del(&mut self,
            database: Database,
            key: &[u8],
@@ -332,6 +330,7 @@ mod test {
     use ffi::*;
 
     use environment::*;
+    use error::*;
     use flags::*;
     use super::*;
     use test_utils::*;
@@ -349,13 +348,13 @@ mod test {
         txn.commit().unwrap();
 
         let mut txn = env.begin_write_txn().unwrap();
-        assert_eq!(b"val1", txn.get(db, b"key1").unwrap().unwrap());
-        assert_eq!(b"val2", txn.get(db, b"key2").unwrap().unwrap());
-        assert_eq!(b"val3", txn.get(db, b"key3").unwrap().unwrap());
-        assert!(txn.get(db, b"key").unwrap().is_none());
+        assert_eq!(b"val1", txn.get(db, b"key1").unwrap());
+        assert_eq!(b"val2", txn.get(db, b"key2").unwrap());
+        assert_eq!(b"val3", txn.get(db, b"key3").unwrap());
+        assert_eq!(txn.get(db, b"key"), Err(LmdbError::NotFound));
 
         txn.del(db, b"key1", None).unwrap();
-        assert!(txn.get(db, b"key1").unwrap().is_none());
+        assert_eq!(txn.get(db, b"key1"), Err(LmdbError::NotFound));
     }
 
     #[test]
@@ -372,11 +371,11 @@ mod test {
         txn.commit().unwrap();
 
         let mut txn = env.begin_write_txn().unwrap();
-        assert_eq!(b"val1", txn.get(db, b"key1").unwrap().unwrap());
-        assert!(txn.get(db, b"key").unwrap().is_none());
+        assert_eq!(b"val1", txn.get(db, b"key1").unwrap());
+        assert_eq!(txn.get(db, b"key"), Err(LmdbError::NotFound));
 
         txn.del(db, b"key1", None).unwrap();
-        assert!(txn.get(db, b"key1").unwrap().is_none());
+        assert_eq!(txn.get(db, b"key1"), Err(LmdbError::NotFound));
     }
 
     #[test]
@@ -440,12 +439,12 @@ mod test {
         {
             let mut nested = txn.begin_nested_txn().unwrap();
             nested.put(db, b"key2", b"val2", WriteFlags::empty()).unwrap();
-            assert_eq!(nested.get(db, b"key1").unwrap(), Some(b"val1"));
-            assert_eq!(nested.get(db, b"key2").unwrap(), Some(b"val2"));
+            assert_eq!(nested.get(db, b"key1").unwrap(), b"val1");
+            assert_eq!(nested.get(db, b"key2").unwrap(), b"val2");
         }
 
-        assert_eq!(txn.get(db, b"key1").unwrap(), Some(b"val1"));
-        assert_eq!(txn.get(db, b"key2").unwrap(), None);
+        assert_eq!(txn.get(db, b"key1").unwrap(), b"val1");
+        assert_eq!(txn.get(db, b"key2"), Err(LmdbError::NotFound));
     }
 
     #[test]
@@ -468,14 +467,14 @@ mod test {
                 let db = reader_env.open_db(None).unwrap();
                 {
                     let txn = reader_env.begin_read_txn().unwrap();
-                    assert!(txn.get(db, key).unwrap().is_none());
+                    assert_eq!(txn.get(db, key), Err(LmdbError::NotFound));
                     txn.abort();
                 }
                 reader_barrier.wait();
                 reader_barrier.wait();
                 {
                     let txn = reader_env.begin_read_txn().unwrap();
-                    txn.get(db, key).unwrap().unwrap() == val
+                    txn.get(db, key).unwrap() == val
                 }
             }));
         }
@@ -523,7 +522,7 @@ mod test {
         for i in range(0, n) {
             assert_eq!(
                 format!("{}{}", val, i).as_bytes(),
-                txn.get(db, format!("{}{}", key, i).as_bytes()).unwrap().unwrap());
+                txn.get(db, format!("{}{}", key, i).as_bytes()).unwrap());
         }
     }
 
@@ -541,7 +540,7 @@ mod test {
         b.iter(|| {
             let mut i = 0u;
             for key in keys.iter() {
-                i = i + txn.get(db, key.as_bytes()).unwrap().unwrap().len();
+                i = i + txn.get(db, key.as_bytes()).unwrap().len();
             }
             black_box(i);
         });

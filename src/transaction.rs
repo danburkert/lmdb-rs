@@ -70,7 +70,7 @@ pub trait TransactionExt<'env> : Transaction<'env> {
     }
 
     /// Open a new read-only cursor on the given database.
-    fn open_read_cursor<'txn>(&'txn self, db: Database) -> LmdbResult<RoCursor<'txn>> {
+    fn open_ro_cursor<'txn>(&'txn self, db: Database) -> LmdbResult<RoCursor<'txn>> {
         RoCursor::new(self, db)
     }
 
@@ -122,6 +122,16 @@ impl <'env> RoTransaction<'env> {
         }
     }
 
+    /// Resets the read-only transaction.
+    ///
+    /// Abort the transaction like `Transaction::abort`, but keep the transaction handle.
+    /// `InactiveTransaction::renew` may reuse the handle. This saves allocation overhead if the
+    /// process will start a new read-only transaction soon, and also locking overhead if
+    /// `EnvironmentFlags::NO_TLS` is in use. The reader table lock is released, but the table slot
+    /// stays tied to its thread or transaction. Reader locks generally don't interfere with
+    /// writers, but they keep old versions of database pages allocated. Thus they prevent the old
+    /// pages from being reused when writers commit new data, and so under heavy load the database
+    /// size may grow much more rapidly than otherwise.
     pub fn reset(self) -> InactiveTransaction<'env> {
         let txn = self.txn;
         unsafe {
@@ -134,7 +144,6 @@ impl <'env> RoTransaction<'env> {
             _no_send: marker::NoSend,
             _contravariant: marker::ContravariantLifetime::<'env>,
         }
-
     }
 }
 
@@ -161,7 +170,10 @@ impl <'env> Drop for InactiveTransaction<'env> {
 
 impl <'env> InactiveTransaction<'env> {
 
-    /// Renews the inactive transaction and returns the active read-only transaction.
+    /// Renews the inactive transaction, returning an active read-only transaction.
+    ///
+    /// This acquires a new reader lock for a transaction handle that had been released by
+    /// `RoTransaction::reset`.
     pub fn renew(self) -> LmdbResult<RoTransaction<'env>> {
         let txn = self.txn;
         unsafe {
@@ -213,8 +225,8 @@ impl <'env> RwTransaction<'env> {
         }
     }
 
-    /// Open a new read-write cursor on the given database.
-    pub fn open_write_cursor<'txn>(&'txn mut self, db: Database) -> LmdbResult<RwCursor<'txn>> {
+    /// Opens a new read-write cursor on the given database and transaction.
+    pub fn open_rw_cursor<'txn>(&'txn mut self, db: Database) -> LmdbResult<RwCursor<'txn>> {
         RwCursor::new(self, db)
     }
 
@@ -341,13 +353,13 @@ mod test {
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
-        let mut txn = env.begin_write_txn().unwrap();
+        let mut txn = env.begin_rw_txn().unwrap();
         txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
         txn.put(db, b"key2", b"val2", WriteFlags::empty()).unwrap();
         txn.put(db, b"key3", b"val3", WriteFlags::empty()).unwrap();
         txn.commit().unwrap();
 
-        let mut txn = env.begin_write_txn().unwrap();
+        let mut txn = env.begin_rw_txn().unwrap();
         assert_eq!(b"val1", txn.get(db, b"key1").unwrap());
         assert_eq!(b"val2", txn.get(db, b"key2").unwrap());
         assert_eq!(b"val3", txn.get(db, b"key3").unwrap());
@@ -363,14 +375,14 @@ mod test {
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
-        let mut txn = env.begin_write_txn().unwrap();
+        let mut txn = env.begin_rw_txn().unwrap();
         {
             let mut writer = txn.reserve(db, b"key1", 4, WriteFlags::empty()).unwrap();
             writer.write(b"val1").unwrap();
         }
         txn.commit().unwrap();
 
-        let mut txn = env.begin_write_txn().unwrap();
+        let mut txn = env.begin_rw_txn().unwrap();
         assert_eq!(b"val1", txn.get(db, b"key1").unwrap());
         assert_eq!(txn.get(db, b"key"), Err(LmdbError::NotFound));
 
@@ -397,7 +409,7 @@ mod test {
 
         {
             let db = env.open_db(None).unwrap();
-            let mut txn = env.begin_write_txn().unwrap();
+            let mut txn = env.begin_rw_txn().unwrap();
             txn.put(db, b"key", b"val", WriteFlags::empty()).unwrap();
             txn.commit().unwrap();
         }
@@ -405,7 +417,7 @@ mod test {
         env.clear_db(None).unwrap();
 
         let db = env.open_db(None).unwrap();
-        let txn = env.begin_read_txn().unwrap();
+        let txn = env.begin_ro_txn().unwrap();
         txn.get(db, b"key").is_err();
     }
 
@@ -416,12 +428,12 @@ mod test {
         let db = env.open_db(None).unwrap();
 
         {
-            let mut txn = env.begin_write_txn().unwrap();
+            let mut txn = env.begin_rw_txn().unwrap();
             txn.put(db, b"key", b"val", WriteFlags::empty()).unwrap();
             txn.commit().unwrap();
         }
 
-        let txn = env.begin_read_txn().unwrap();
+        let txn = env.begin_ro_txn().unwrap();
         let inactive = txn.reset();
         let active = inactive.renew().unwrap();
         assert!(active.get(db, b"key").is_ok());
@@ -433,7 +445,7 @@ mod test {
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
-        let mut txn = env.begin_write_txn().unwrap();
+        let mut txn = env.begin_rw_txn().unwrap();
         txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
 
         {
@@ -466,21 +478,21 @@ mod test {
             futures.push(Future::spawn(move|| {
                 let db = reader_env.open_db(None).unwrap();
                 {
-                    let txn = reader_env.begin_read_txn().unwrap();
+                    let txn = reader_env.begin_ro_txn().unwrap();
                     assert_eq!(txn.get(db, key), Err(LmdbError::NotFound));
                     txn.abort();
                 }
                 reader_barrier.wait();
                 reader_barrier.wait();
                 {
-                    let txn = reader_env.begin_read_txn().unwrap();
+                    let txn = reader_env.begin_ro_txn().unwrap();
                     txn.get(db, key).unwrap() == val
                 }
             }));
         }
 
         let db = env.open_db(None).unwrap();
-        let mut txn = env.begin_write_txn().unwrap();
+        let mut txn = env.begin_rw_txn().unwrap();
         barrier.wait();
         txn.put(db, key, val, WriteFlags::empty()).unwrap();
         txn.commit().unwrap();
@@ -505,7 +517,7 @@ mod test {
 
             futures.push(Future::spawn(move|| {
                 let db = writer_env.open_db(None).unwrap();
-                let mut txn = writer_env.begin_write_txn().unwrap();
+                let mut txn = writer_env.begin_rw_txn().unwrap();
                 txn.put(db,
                         format!("{}{}", key, i).as_bytes(),
                         format!("{}{}", val, i).as_bytes(),
@@ -517,7 +529,7 @@ mod test {
         assert!(futures.iter_mut().all(|b| b.get()));
 
         let db = env.open_db(None).unwrap();
-        let txn = env.begin_read_txn().unwrap();
+        let txn = env.begin_ro_txn().unwrap();
 
         for i in range(0, n) {
             assert_eq!(
@@ -531,7 +543,7 @@ mod test {
         let n = 100u32;
         let (_dir, env) = setup_bench_db(n);
         let db = env.open_db(None).unwrap();
-        let txn = env.begin_read_txn().unwrap();
+        let txn = env.begin_ro_txn().unwrap();
 
         let mut keys: Vec<String> = range(0, n).map(|n| get_key(n))
                                                .collect::<Vec<_>>();
@@ -551,7 +563,7 @@ mod test {
         let n = 100u32;
         let (_dir, env) = setup_bench_db(n);
         let db = env.open_db(None).unwrap();
-        let _txn = env.begin_read_txn().unwrap();
+        let _txn = env.begin_ro_txn().unwrap();
 
         let mut keys: Vec<String> = range(0, n).map(|n| get_key(n))
                                                .collect::<Vec<_>>();
@@ -588,7 +600,7 @@ mod test {
         XorShiftRng::new_unseeded().shuffle(items.as_mut_slice());
 
         b.iter(|| {
-            let mut txn = env.begin_write_txn().unwrap();
+            let mut txn = env.begin_rw_txn().unwrap();
             for &(ref key, ref data) in items.iter() {
                 txn.put(db, key.as_bytes(), data.as_bytes(), WriteFlags::empty()).unwrap();
             }

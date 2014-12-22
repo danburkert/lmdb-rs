@@ -46,17 +46,20 @@ impl Environment {
     /// case the environment must be configured to allow named databases through
     /// `EnvironmentBuilder::set_max_dbs`.
     ///
-    /// The returned database handle may be shared among transactions.
-    pub fn open_db<'env>(&'env self, name: Option<&str>) -> LmdbResult<Database<'env>> {
+    /// The returned database handle may be shared among any transaction in the environment.
+    ///
+    /// This function will fail with `LmdbError::BadRslot` if called by a thread which has an ongoing
+    /// transaction.
+    pub fn open_db<'env>(&'env self, name: Option<&str>) -> LmdbResult<Database> {
         let mutex = self.dbi_open_mutex.lock();
-        let txn = try!(self.begin_read_txn());
+        let txn = try!(self.begin_ro_txn());
         let db = unsafe { try!(Database::open(&txn, name)) };
         try!(txn.commit());
         drop(mutex);
         Ok(db)
     }
 
-    /// Opens a handle to an LMDB database, opening the database if necessary.
+    /// Opens a handle to an LMDB database, creating the database if necessary.
     ///
     /// If the database is already created, the given option flags will be added to it.
     ///
@@ -66,21 +69,24 @@ impl Environment {
     /// case the environment must be configured to allow named databases through
     /// `EnvironmentBuilder::set_max_dbs`.
     ///
-    /// The returned database handle may be shared among transactions.
+    /// The returned database handle may be shared among any transaction in the environment.
+    ///
+    /// This function will fail with `LmdbError::BadRslot` if called by a thread with an open
+    /// transaction.
     pub fn create_db<'env>(&'env self,
                            name: Option<&str>,
                            flags: DatabaseFlags)
-                           -> LmdbResult<Database<'env>> {
+                           -> LmdbResult<Database> {
         let mutex = self.dbi_open_mutex.lock();
-        let txn = try!(self.begin_write_txn());
+        let txn = try!(self.begin_rw_txn());
         let db = unsafe { try!(Database::create(&txn, name, flags)) };
         try!(txn.commit());
         drop(mutex);
         Ok(db)
     }
 
-    pub fn get_db_flags<'env>(&'env self, db: Database<'env>) -> LmdbResult<DatabaseFlags> {
-        let txn = try!(self.begin_read_txn());
+    pub fn get_db_flags<'env>(&'env self, db: Database) -> LmdbResult<DatabaseFlags> {
+        let txn = try!(self.begin_ro_txn());
         let mut flags: c_uint = 0;
         unsafe {
             try!(lmdb_result(ffi::mdb_dbi_flags(txn.txn(), db.dbi(), &mut flags)));
@@ -89,19 +95,19 @@ impl Environment {
     }
 
     /// Create a read-only transaction for use with the environment.
-    pub fn begin_read_txn<'env>(&'env self) -> LmdbResult<RoTransaction<'env>> {
+    pub fn begin_ro_txn<'env>(&'env self) -> LmdbResult<RoTransaction<'env>> {
         RoTransaction::new(self)
     }
 
     /// Create a read-write transaction for use with the environment. This method will block while
     /// there are any other read-write transactions open on the environment.
-    pub fn begin_write_txn<'env>(&'env self) -> LmdbResult<RwTransaction<'env>> {
+    pub fn begin_rw_txn<'env>(&'env self) -> LmdbResult<RwTransaction<'env>> {
         RwTransaction::new(self)
     }
 
     /// Flush data buffers to disk.
     ///
-    /// Data is always written to disk when `Transaction::commit()` is called, but the operating
+    /// Data is always written to disk when `Transaction::commit` is called, but the operating
     /// system may keep it buffered. LMDB always flushes the OS buffers upon commit as well, unless
     /// the environment was opened with `MDB_NOSYNC` or in part `MDB_NOMETASYNC`.
     pub fn sync(&self, force: bool) -> LmdbResult<()> {
@@ -123,13 +129,13 @@ impl Environment {
 
     pub fn clear_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
         let db = try!(self.open_db(name));
-        let txn = try!(self.begin_write_txn());
+        let txn = try!(self.begin_rw_txn());
         unsafe { lmdb_result(ffi::mdb_drop(txn.txn(), db.dbi(), 0)) }
     }
 
     pub fn drop_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
         let db = try!(self.open_db(name));
-        let txn = try!(self.begin_write_txn());
+        let txn = try!(self.begin_rw_txn());
         unsafe { lmdb_result(ffi::mdb_drop(txn.txn(), db.dbi(), 1)) }
     }
 }
@@ -262,8 +268,8 @@ mod test {
         { // writable environment
             let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
 
-            assert!(env.begin_write_txn().is_ok());
-            assert!(env.begin_read_txn().is_ok());
+            assert!(env.begin_rw_txn().is_ok());
+            assert!(env.begin_ro_txn().is_ok());
         }
 
         { // read-only environment
@@ -271,8 +277,8 @@ mod test {
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
 
-            assert!(env.begin_write_txn().is_err());
-            assert!(env.begin_read_txn().is_ok());
+            assert!(env.begin_rw_txn().is_err());
+            assert!(env.begin_ro_txn().is_ok());
         }
     }
 

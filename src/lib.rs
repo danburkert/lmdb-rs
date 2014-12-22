@@ -80,7 +80,7 @@ mod test_utils {
 
         {
             let db = env.open_db(None).unwrap();
-            let mut txn = env.begin_write_txn().unwrap();
+            let mut txn = env.begin_rw_txn().unwrap();
             for i in range(0, num_rows) {
                 txn.put(db,
                         get_key(i).as_bytes(),

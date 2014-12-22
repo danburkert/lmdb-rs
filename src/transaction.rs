@@ -146,6 +146,7 @@ impl <'env> Transaction<'env> for RoTransaction<'env> {
     }
 }
 
+/// An inactive read-only transaction.
 pub struct InactiveTransaction<'env> {
     txn: *mut ffi::MDB_txn,
     _no_sync: marker::NoSync,
@@ -162,6 +163,7 @@ impl <'env> Drop for InactiveTransaction<'env> {
 
 impl <'env> InactiveTransaction<'env> {
 
+    /// Renews the inactive transaction and returns the active read-only transaction.
     pub fn renew(self) -> LmdbResult<RoTransaction<'env>> {
         let txn = self.txn;
         unsafe {

@@ -44,6 +44,25 @@ pub trait TransactionExt<'env> : Transaction<'env> {
         // Abort should be performed in transaction destructors.
     }
 
+    /// Opens a database in the transaction.
+    ///
+    /// If `name` is `None`, then the default database will be opened, otherwise a named database
+    /// will be opened. The database handle will be private to the transaction until the transaction
+    /// is successfully committed. If the transaction is aborted the returned database handle
+    /// should no longer be used.
+    ///
+    /// Prefer using `Environment::open_db`.
+    ///
+    /// ## Unsafety
+    ///
+    /// This function (as well as `Environment::open_db`, `Environment::create_db`, and
+    /// `Database::create`) **must not** be called from multiple concurrent transactions in the same
+    /// environment. A transaction which uses this function must finish (either commit or abort)
+    /// before any other transaction may use this function.
+    unsafe fn open_db(&self, name: Option<&str>) -> LmdbResult<Database> {
+        Database::new(self.txn(), name, 0)
+    }
+
     /// Gets an item from a database.
     ///
     /// This function retrieves the data associated with the given key in the database. If the
@@ -224,6 +243,29 @@ impl <'env> RwTransaction<'env> {
             })
         }
     }
+
+    /// Opens a database in the provided transaction, creating it if necessary.
+    ///
+    /// If `name` is `None`, then the default database will be opened, otherwise a named database
+    /// will be opened. The database handle will be private to the transaction until the transaction
+    /// is successfully committed. If the transaction is aborted the returned database handle
+    /// should no longer be used.
+    ///
+    /// Prefer using `Environment::create_db`.
+    ///
+    /// ## Unsafety
+    ///
+    /// * This function (as well as `Environment::open_db`, `Environment::create_db`, and
+    /// `Database::open`) **must not** be called from multiple concurrent transactions in the same
+    /// environment. A transaction which uses this function must finish (either commit or abort)
+    /// before any other transaction may use this function.
+    pub unsafe fn create_db(&self,
+                            name: Option<&str>,
+                            flags: DatabaseFlags)
+                            -> LmdbResult<Database> {
+        Database::new(self.txn(), name, flags.bits() | ffi::MDB_CREATE)
+    }
+
 
     /// Opens a new read-write cursor on the given database and transaction.
     pub fn open_rw_cursor<'txn>(&'txn mut self, db: Database) -> LmdbResult<RwCursor<'txn>> {

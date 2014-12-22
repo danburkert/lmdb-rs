@@ -53,7 +53,7 @@ impl Environment {
     pub fn open_db<'env>(&'env self, name: Option<&str>) -> LmdbResult<Database> {
         let mutex = self.dbi_open_mutex.lock();
         let txn = try!(self.begin_ro_txn());
-        let db = unsafe { try!(Database::open(&txn, name)) };
+        let db = unsafe { try!(txn.open_db(name)) };
         try!(txn.commit());
         drop(mutex);
         Ok(db)
@@ -79,7 +79,7 @@ impl Environment {
                            -> LmdbResult<Database> {
         let mutex = self.dbi_open_mutex.lock();
         let txn = try!(self.begin_rw_txn());
-        let db = unsafe { try!(Database::create(&txn, name, flags)) };
+        let db = unsafe { try!(txn.create_db(name, flags)) };
         try!(txn.commit());
         drop(mutex);
         Ok(db)

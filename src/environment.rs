@@ -116,27 +116,21 @@ impl Environment {
         }
     }
 
-    /// Close a database handle. Normally unnecessary.
+    /// Closes the database handle. Normally unnecessary.
     ///
     /// Closing a database handle is not necessary, but lets `Transaction::open_database` reuse the
     /// handle value. Usually it's better to set a bigger `EnvironmentBuilder::set_max_dbs`, unless
     /// that value would be large.
-    pub fn close_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
-        let db = try!(self.open_db(name));
-        unsafe { ffi::mdb_dbi_close(self.env, db.dbi()) };
-        Ok(())
-    }
-
-    pub fn clear_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
-        let db = try!(self.open_db(name));
-        let txn = try!(self.begin_rw_txn());
-        unsafe { lmdb_result(ffi::mdb_drop(txn.txn(), db.dbi(), 0)) }
-    }
-
-    pub fn drop_db(&mut self, name: Option<&str>) -> LmdbResult<()> {
-        let db = try!(self.open_db(name));
-        let txn = try!(self.begin_rw_txn());
-        unsafe { lmdb_result(ffi::mdb_drop(txn.txn(), db.dbi(), 1)) }
+    ///
+    /// ## Unsafety
+    ///
+    /// This call is not mutex protected. Databases should only be closed by a single thread, and
+    /// only if no other threads are going to reference the database handle or one of its cursors
+    /// any further. Do not close a handle if an existing transaction has modified its database.
+    /// Doing so can cause misbehavior from database corruption to errors like
+    /// `LmdbError::BadValSize` (since the DB name is gone).
+    pub unsafe fn close_db(&mut self, db: Database) {
+        ffi::mdb_dbi_close(self.env, db.dbi());
     }
 }
 
@@ -302,6 +296,18 @@ mod test {
         assert!(env.open_db(Some("testdb")).is_err());
         assert!(env.create_db(Some("testdb"), DatabaseFlags::empty()).is_ok());
         assert!(env.open_db(Some("testdb")).is_ok())
+    }
+
+    #[test]
+    fn test_close_database() {
+        let dir = io::TempDir::new("test").unwrap();
+        let mut env = Environment::new().set_max_dbs(10)
+                                        .open(dir.path(), io::USER_RWX)
+                                        .unwrap();
+
+        let db = env.create_db(Some("db"), DatabaseFlags::empty()).unwrap();
+        unsafe { env.close_db(db); }
+        assert!(env.open_db(Some("db")).is_ok());
     }
 
     #[test]

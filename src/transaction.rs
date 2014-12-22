@@ -308,6 +308,21 @@ impl <'env> RwTransaction<'env> {
         }
     }
 
+    /// Empties the given database. All items will be removed.
+    pub fn clear_db(&mut self, db: Database) -> LmdbResult<()> {
+        unsafe { lmdb_result(ffi::mdb_drop(self.txn(), db.dbi(), 0)) }
+    }
+
+    /// Drops the database from the environment.
+    ///
+    /// ## Unsafety
+    ///
+    /// This method is unsafe in the same ways as `Environment::close_db`, and should be used
+    /// accordingly.
+    pub unsafe fn drop_db(&mut self, db: Database) -> LmdbResult<()> {
+        lmdb_result(ffi::mdb_drop(self.txn, db.dbi(), 1))
+    }
+
     /// Begins a new nested transaction inside of this transaction.
     pub fn begin_nested_txn<'txn>(&'txn mut self) -> LmdbResult<RwTransaction<'txn>> {
         let mut nested: *mut ffi::MDB_txn = ptr::null_mut();
@@ -391,37 +406,6 @@ mod test {
     }
 
     #[test]
-    fn test_close_database() {
-        let dir = io::TempDir::new("test").unwrap();
-        let mut env = Environment::new().set_max_dbs(10)
-                                        .open(dir.path(), io::USER_RWX)
-                                        .unwrap();
-
-        env.create_db(Some("db"), DatabaseFlags::empty()).unwrap();
-        env.close_db(Some("db")).unwrap();
-        assert!(env.open_db(Some("db")).is_ok());
-    }
-
-    #[test]
-    fn test_clear_db() {
-        let dir = io::TempDir::new("test").unwrap();
-        let mut env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
-
-        {
-            let db = env.open_db(None).unwrap();
-            let mut txn = env.begin_rw_txn().unwrap();
-            txn.put(db, b"key", b"val", WriteFlags::empty()).unwrap();
-            txn.commit().unwrap();
-        }
-
-        env.clear_db(None).unwrap();
-
-        let db = env.open_db(None).unwrap();
-        let txn = env.begin_ro_txn().unwrap();
-        txn.get(db, b"key").is_err();
-    }
-
-    #[test]
     fn test_inactive_txn() {
         let dir = io::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
@@ -457,6 +441,50 @@ mod test {
 
         assert_eq!(txn.get(db, b"key1").unwrap(), b"val1");
         assert_eq!(txn.get(db, b"key2"), Err(LmdbError::NotFound));
+    }
+
+    #[test]
+    fn test_clear_db() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let db = env.open_db(None).unwrap();
+
+        {
+            let mut txn = env.begin_rw_txn().unwrap();
+            txn.put(db, b"key", b"val", WriteFlags::empty()).unwrap();
+            txn.commit().unwrap();
+        }
+
+        {
+            let mut txn = env.begin_rw_txn().unwrap();
+            txn.clear_db(db).unwrap();
+            txn.commit().unwrap();
+        }
+
+        let txn = env.begin_ro_txn().unwrap();
+        assert_eq!(txn.get(db, b"key"), Err(LmdbError::NotFound));
+    }
+
+
+    #[test]
+    fn test_drop_db() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().set_max_dbs(2)
+                                        .open(dir.path(), io::USER_RWX).unwrap();
+        let db = env.create_db(Some("test"), DatabaseFlags::empty()).unwrap();
+
+        {
+            let mut txn = env.begin_rw_txn().unwrap();
+            txn.put(db, b"key", b"val", WriteFlags::empty()).unwrap();
+            txn.commit().unwrap();
+        }
+        {
+            let mut txn = env.begin_rw_txn().unwrap();
+            unsafe { txn.drop_db(db).unwrap(); }
+            txn.commit().unwrap();
+        }
+
+        assert_eq!(env.open_db(Some("test")), Err(LmdbError::NotFound));
     }
 
     #[test]

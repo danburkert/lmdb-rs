@@ -9,7 +9,7 @@ use transaction::{RwTransaction, Transaction};
 /// A handle to an individual database in an environment.
 ///
 /// A database handle denotes the name and parameters of a database in an environment.
-#[deriving(Clone, Copy)]
+#[deriving(Show, Clone, Copy, Eq, PartialEq)]
 pub struct Database {
     dbi: ffi::MDB_dbi,
 }

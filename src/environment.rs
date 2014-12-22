@@ -242,7 +242,7 @@ mod test {
         let dir = io::TempDir::new("test").unwrap();
 
         // opening non-existent env with read-only should fail
-        assert!(Environment::new().set_flags(MDB_RDONLY)
+        assert!(Environment::new().set_flags(READ_ONLY)
                                   .open(dir.path(), io::USER_RWX)
                                   .is_err());
 
@@ -250,7 +250,7 @@ mod test {
         assert!(Environment::new().open(dir.path(), io::USER_RWX).is_ok());
 
         // opening env with read-only should succeed
-        assert!(Environment::new().set_flags(MDB_RDONLY)
+        assert!(Environment::new().set_flags(READ_ONLY)
                                   .open(dir.path(), io::USER_RWX)
                                   .is_ok());
     }
@@ -267,7 +267,7 @@ mod test {
         }
 
         { // read-only environment
-            let env = Environment::new().set_flags(MDB_RDONLY)
+            let env = Environment::new().set_flags(READ_ONLY)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
 
@@ -305,7 +305,7 @@ mod test {
             let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
             assert!(env.sync(true).is_ok());
         } {
-            let env = Environment::new().set_flags(MDB_RDONLY)
+            let env = Environment::new().set_flags(READ_ONLY)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
             assert!(env.sync(true).is_ok());

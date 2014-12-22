@@ -147,8 +147,8 @@ impl <'txn> RwCursor<'txn> {
     ///
     /// ### Flags
     ///
-    /// `MDB_NODUPDATA` may be used to delete all data items for the current key, if the database
-    /// was opened with `MDB_DUPSORT`.
+    /// `NO_DUP_DATA` may be used to delete all data items for the current key, if the database
+    /// was opened with `DUP_SORT`.
     pub fn del(&self, flags: WriteFlags) -> LmdbResult<()> {
         unsafe {
             lmdb_result(ffi::mdb_cursor_del(self.cursor(), flags.bits()))
@@ -283,7 +283,7 @@ mod test {
     fn test_get_dup() {
         let dir = io::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
-        let db = env.create_db(None, MDB_DUPSORT).unwrap();
+        let db = env.create_db(None, DUP_SORT).unwrap();
 
         let mut txn = env.begin_write_txn().unwrap();
         txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
@@ -329,7 +329,7 @@ mod test {
     fn test_get_dupfixed() {
         let dir = io::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
-        let db = env.create_db(None, MDB_DUPSORT | MDB_DUPFIXED).unwrap();
+        let db = env.create_db(None, DUP_SORT | DUP_FIXED).unwrap();
 
         let mut txn = env.begin_write_txn().unwrap();
         txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();

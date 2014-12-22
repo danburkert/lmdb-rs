@@ -81,66 +81,45 @@ pub const MDB_CP_COMPACT: c_uint = 0x01;
 
 /// Successful result.
 pub const MDB_SUCCESS: c_int = 0;
-
 /// key/data pair already exists.
 pub const MDB_KEYEXIST: c_int = -30799;
-
 /// key/data pair not found (EOF).
 pub const MDB_NOTFOUND: c_int = -30798;
-
 /// Requested page not found - this usually indicates corruption.
 pub const MDB_PAGE_NOTFOUND: c_int = -30797;
-
 /// Located page was wrong type.
 pub const MDB_CORRUPTED: c_int = -30796;
-
 /// Update of meta page failed or environment had fatal error.
-pub const MDB_PANIC	: c_int = -30795;
-
+pub const MDB_PANIC: c_int = -30795;
 /// Environment version mismatch.
 pub const MDB_VERSION_MISMATCH: c_int = -30794;
-
 /// File is not a valid LMDB file.
 pub const MDB_INVALID: c_int = -30793;
-
 /// Environment mapsize reached.
 pub const MDB_MAP_FULL: c_int = -30792;
-
 /// Environment maxdbs reached.
 pub const MDB_DBS_FULL: c_int = -30791;
-
 /// Environment maxreaders reached.
 pub const MDB_READERS_FULL: c_int = -30790;
-
 /// Too many TLS keys in use - Windows only.
 pub const MDB_TLS_FULL: c_int = -30789;
-
 /// Txn has too many dirty pages.
 pub const MDB_TXN_FULL: c_int = -30788;
-
 /// Cursor stack too deep - internal error.
 pub const MDB_CURSOR_FULL: c_int = -30787;
-
 /// Page has not enough space - internal error.
 pub const MDB_PAGE_FULL: c_int = -30786;
-
 /// Database contents grew beyond environment mapsize.
 pub const MDB_MAP_RESIZED: c_int = -30785;
-
 /// MDB_INCOMPATIBLE: Operation and DB incompatible, or DB flags changed.
 pub const MDB_INCOMPATIBLE: c_int = -30784;
-
 /// Invalid reuse of reader locktable slot.
 pub const MDB_BAD_RSLOT: c_int = -30783;
-
 /// Transaction cannot recover - it must be aborted.
 pub const MDB_BAD_TXN: c_int = -30782;
-
 /// Unsupported size of key/DB name/data, or wrong DUPFIXED size.
 pub const MDB_BAD_VALSIZE: c_int = -30781;
-
 /// The specified DBI was changed unexpectedly.
 pub const MDB_BAD_DBI: c_int = -30780;
-
 /// The last defined error code.
 pub const MDB_LAST_ERRCODE: c_int = MDB_BAD_DBI;

@@ -122,7 +122,7 @@ impl Environment {
     /// handle value. Usually it's better to set a bigger `EnvironmentBuilder::set_max_dbs`, unless
     /// that value would be large.
     ///
-    /// ## Unsafety
+    /// ## Safety
     ///
     /// This call is not mutex protected. Databases should only be closed by a single thread, and
     /// only if no other threads are going to reference the database handle or one of its cursors

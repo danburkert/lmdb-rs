@@ -53,7 +53,7 @@ pub trait TransactionExt<'env> : Transaction<'env> {
     ///
     /// Prefer using `Environment::open_db`.
     ///
-    /// ## Unsafety
+    /// ## Safety
     ///
     /// This function (as well as `Environment::open_db`, `Environment::create_db`, and
     /// `Database::create`) **must not** be called from multiple concurrent transactions in the same
@@ -253,7 +253,7 @@ impl <'env> RwTransaction<'env> {
     ///
     /// Prefer using `Environment::create_db`.
     ///
-    /// ## Unsafety
+    /// ## Safety
     ///
     /// * This function (as well as `Environment::open_db`, `Environment::create_db`, and
     /// `Database::open`) **must not** be called from multiple concurrent transactions in the same
@@ -357,7 +357,7 @@ impl <'env> RwTransaction<'env> {
 
     /// Drops the database from the environment.
     ///
-    /// ## Unsafety
+    /// ## Safety
     ///
     /// This method is unsafe in the same ways as `Environment::close_db`, and should be used
     /// accordingly.

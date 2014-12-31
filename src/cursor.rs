@@ -41,9 +41,36 @@ pub trait CursorExt<'txn> : Cursor<'txn> {
         }
     }
 
-    /// Open a new read-only cursor on the given database.
+    /// Iterate over database items. The iterator will begin with item next after the cursor, and
+    /// continue until the end of the database. For new cursors, the iterator will begin with the
+    /// first item in the database.
+    ///
+    /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the duplicate data
+    /// items of each key will be returned before moving on to the next key.
     fn iter(&mut self) -> Items<'txn> {
-        Items::new(self)
+        Items::new(self, ffi::MDB_NEXT, ffi::MDB_NEXT)
+    }
+
+    /// Iterate over database items starting from the beginning of the database.
+    ///
+    /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the duplicate data
+    /// items of each key will be returned before moving on to the next key.
+    fn iter_start(&mut self) -> Items<'txn> {
+        self.get(None, None, ffi::MDB_FIRST).unwrap();
+        Items::new(self, ffi::MDB_GET_CURRENT, ffi::MDB_NEXT)
+    }
+
+    /// Iterate over database items starting from the given key.
+    ///
+    /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the duplicate data
+    /// items of each key will be returned before moving on to the next key.
+    fn iter_from(&mut self, key: &[u8]) -> Items<'txn> {
+        self.get(Some(key), None, ffi::MDB_SET_RANGE).unwrap();
+        Items::new(self, ffi::MDB_GET_CURRENT, ffi::MDB_NEXT)
+    }
+
+    fn iter_dup(&mut self) -> Items<'txn> {
+        Items::new(self, ffi::MDB_NEXT_DUP, ffi::MDB_NEXT_DUP)
     }
 }
 
@@ -181,14 +208,50 @@ pub struct Items<'txn> {
 impl <'txn> Items<'txn> {
 
     /// Creates a new iterator backed by the given cursor.
-    fn new<'t>(cursor: &Cursor<'t>) -> Items<'t> {
-        Items { cursor: cursor.cursor(), op: ffi::MDB_FIRST, next_op: ffi::MDB_NEXT }
+    fn new<'t>(cursor: &mut Cursor<'t>, op: c_uint, next_op: c_uint) -> Items<'t> {
+        Items { cursor: cursor.cursor(), op: op, next_op: next_op }
     }
 }
 
 impl <'txn> Iterator<(&'txn [u8], &'txn [u8])> for Items<'txn> {
 
     fn next(&mut self) -> Option<(&'txn [u8], &'txn [u8])> {
+        let mut key = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+        let mut data = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+
+        unsafe {
+            let err_code = ffi::mdb_cursor_get(self.cursor, &mut key, &mut data, self.op);
+            // Set the operation for the next get
+            self.op = self.next_op;
+            if err_code == ffi::MDB_SUCCESS {
+                Some((val_to_slice(key), val_to_slice(data)))
+            } else {
+                // The documentation for mdb_cursor_get specifies that it may fail with MDB_NOTFOUND
+                // and MDB_EINVAL (and we shouldn't be passing in invalid parameters).
+                // TODO: validate that these are the only failures possible.
+                debug_assert!(err_code == ffi::MDB_NOTFOUND,
+                              "Unexpected LMDB error {}.", LmdbError::from_err_code(err_code));
+                None
+            }
+        }
+    }
+}
+
+pub struct Items<'txn> {
+    cursor: *mut ffi::MDB_cursor,
+}
+
+impl <'txn> DupItems<'txn> {
+
+    /// Creates a new iterator backed by the given cursor.
+    fn new<'t>(cursor: &mut Cursor<'t>) -> DupItems<'t> {
+        DupItems { cursor: cursor.cursor() }
+    }
+}
+
+impl <'txn> Iterator<Items<'txn>> for DupItems<'txn> {
+
+    fn next(&mut self) -> Option<Items<'txn>> {
         let mut key = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
         let mut data = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
 
@@ -223,29 +286,6 @@ mod test {
     use super::*;
     use test_utils::*;
     use transaction::*;
-
-    #[test]
-    fn test_iter() {
-        let dir = io::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
-        let db = env.open_db(None).unwrap();
-
-        let items = vec!((b"key1", b"val1"),
-                         (b"key2", b"val2"),
-                         (b"key3", b"val3"));
-
-        {
-            let mut txn = env.begin_rw_txn().unwrap();
-            for &(key, data) in items.iter() {
-                txn.put(db, key, data, WriteFlags::empty()).unwrap();
-            }
-            txn.commit().unwrap();
-        }
-
-        let txn = env.begin_ro_txn().unwrap();
-        let mut cursor = txn.open_ro_cursor(db).unwrap();
-        assert_eq!(items, cursor.iter().collect::<Vec<(&[u8], &[u8])>>());
-    }
 
     #[test]
     fn test_get() {
@@ -344,6 +384,78 @@ mod test {
                    cursor.get(None, None, MDB_GET_MULTIPLE).unwrap());
         assert!(cursor.get(None, None, MDB_NEXT_MULTIPLE).is_err());
     }
+
+    #[test]
+    fn test_iter() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let db = env.open_db(None).unwrap();
+
+        let items = vec!((b"key1", b"val1"),
+                         (b"key2", b"val2"),
+                         (b"key3", b"val3"));
+
+        {
+            let mut txn = env.begin_rw_txn().unwrap();
+            for &(key, data) in items.iter() {
+                txn.put(db, key, data, WriteFlags::empty()).unwrap();
+            }
+            txn.commit().unwrap();
+        }
+
+        let txn = env.begin_ro_txn().unwrap();
+        let mut cursor = txn.open_ro_cursor(db).unwrap();
+        assert_eq!(items, cursor.iter().collect::<Vec<_>>());
+
+        cursor.get(Some(b"key2"), None, MDB_SET).unwrap();
+        assert_eq!(items.clone().into_iter().skip(2).collect::<Vec<_>>(),
+                   cursor.iter().collect::<Vec<_>>());
+
+        assert_eq!(items, cursor.iter_start().collect::<Vec<_>>());
+
+        assert_eq!(items.clone().into_iter().skip(1).collect::<Vec<_>>(),
+                   cursor.iter_from(b"key2").collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn test_iter_dup() {
+        let dir = io::TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let db = env.create_db(None, DUP_SORT).unwrap();
+
+        let items = vec!((b"a", b"1"),
+                         (b"a", b"2"),
+                         (b"a", b"3"),
+                         (b"b", b"1"),
+                         (b"b", b"2"),
+                         (b"b", b"3"),
+                         (b"c", b"1"),
+                         (b"c", b"2"),
+                         (b"c", b"3"));
+
+        {
+            let mut txn = env.begin_rw_txn().unwrap();
+            for &(key, data) in items.iter() {
+                txn.put(db, key, data, WriteFlags::empty()).unwrap();
+            }
+            txn.commit().unwrap();
+        }
+
+        let txn = env.begin_ro_txn().unwrap();
+        let mut cursor = txn.open_ro_cursor(db).unwrap();
+        assert_eq!(items, cursor.iter_dup().collect::<Vec<_>>());
+
+        //cursor.get(Some(b"b"), None, MDB_SET).unwrap();
+        //assert_eq!(items.clone().into_iter().skip(4).collect::<Vec<(&[u8], &[u8])>>(),
+                   //cursor.iter().collect::<Vec<_>>());
+
+        //assert_eq!(items, cursor.iter_start().collect::<Vec<(&[u8], &[u8])>>());
+
+        //assert_eq!(items.clone().into_iter().skip(3).collect::<Vec<(&[u8], &[u8])>>(),
+                   //cursor.iter_from(b"b").collect::<Vec<_>>());
+
+    }
+
 
     #[test]
     fn test_put_del() {

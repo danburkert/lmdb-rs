@@ -1,4 +1,5 @@
 use libc::c_uint;
+use std::c_str::ToCStr;
 use std::ptr;
 
 use ffi;
@@ -8,7 +9,7 @@ use error::{LmdbResult, lmdb_result};
 /// A handle to an individual database in an environment.
 ///
 /// A database handle denotes the name and parameters of a database in an environment.
-#[deriving(Show, Clone, Copy, Eq, PartialEq)]
+#[derive(Show, Clone, Copy, Eq, PartialEq)]
 pub struct Database {
     dbi: ffi::MDB_dbi,
 }

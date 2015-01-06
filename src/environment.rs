@@ -1,4 +1,5 @@
 use libc::{c_uint, size_t, mode_t};
+use std::c_str::ToCStr;
 use std::io::FilePermission;
 use std::ptr;
 use std::sync::Mutex;
@@ -17,6 +18,9 @@ pub struct Environment {
     env: *mut ffi::MDB_env,
     dbi_open_mutex: Mutex<()>,
 }
+
+unsafe impl Send for Environment {}
+unsafe impl Sync for Environment {}
 
 impl Environment {
 
@@ -145,7 +149,7 @@ impl Drop for Environment {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Options for opening or creating an environment.
-#[deriving(Show, PartialEq, Eq, Copy, Clone)]
+#[derive(Show, PartialEq, Eq, Copy, Clone)]
 pub struct EnvironmentBuilder {
     flags: EnvironmentFlags,
     max_readers: Option<c_uint>,

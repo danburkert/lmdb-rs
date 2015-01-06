@@ -4,7 +4,7 @@ use std::str;
 
 use ffi;
 
-#[deriving(Show, Eq, PartialEq, Copy, Clone)]
+#[derive(Show, Eq, PartialEq, Copy, Clone)]
 pub enum LmdbError {
     /// key/data pair already exists.
     KeyExist,

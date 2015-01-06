@@ -24,7 +24,7 @@ pub trait Transaction<'env> {
 }
 
 /// Transaction extension methods.
-pub trait TransactionExt<'env> : Transaction<'env> {
+pub trait TransactionExt<'env> : Transaction<'env> + Sized {
 
     /// Commits the transaction.
     ///

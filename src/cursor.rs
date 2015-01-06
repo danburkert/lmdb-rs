@@ -89,6 +89,12 @@ pub trait CursorExt<'txn> : Cursor<'txn> + Sized {
         self.get(Some(key), None, ffi::MDB_SET_RANGE).unwrap();
         IterDup::new(self.cursor(), ffi::MDB_GET_CURRENT)
     }
+
+    /// Iterate over the duplicates of the item in the database with the given key.
+    fn iter_dup_of(&mut self, key: &[u8]) -> LmdbResult<Iter<'txn>> {
+        try!(self.get(Some(key), None, ffi::MDB_SET));
+        Ok(Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT_DUP))
+    }
 }
 
 impl<'txn, T> CursorExt<'txn> for T where T: Cursor<'txn> {}
@@ -473,8 +479,12 @@ mod test {
 
         assert_eq!(items.clone().into_iter().skip(3).collect::<Vec<(&[u8], &[u8])>>(),
                    cursor.iter_dup_from(b"ab").flat_map(|x| x).collect::<Vec<_>>());
-    }
 
+        assert_eq!(items.clone().into_iter().skip(3).take(3).collect::<Vec<(&[u8], &[u8])>>(),
+                   cursor.iter_dup_of(b"b").unwrap().collect::<Vec<_>>());
+
+        assert!(cursor.iter_dup_of(b"foo").is_err());
+    }
 
     #[test]
     fn test_put_del() {

@@ -1,13 +1,16 @@
-#![allow(dead_code, uppercase_variables, non_camel_case_types)]
+#![allow(
+    dead_code,
+    missing_copy_implementations,
+    non_camel_case_types,
+    non_snake_case,
+    raw_pointer_derive,
+   )]
 #![feature(plugin)]
 
-#[plugin]
-extern crate bindgen;
 extern crate libc;
 
-use libc::{size_t, mode_t};
 pub use constants::*;
 
 mod constants;
 
-bindgen!("../mdb/libraries/liblmdb/lmdb.h", match="lmdb.h", link="lmdb");
+include!(concat!(env!("OUT_DIR"), "/lmdb.rs"));

@@ -12,7 +12,7 @@ build = "build.rs"
 
 name = "lmdb-sys"
 
-[dependencies.rust-bindgen]
+[build-dependencies.rust-bindgen]
 git = "https://github.com/crabtw/rust-bindgen.git"
 
 [build-dependencies.pkg-config]

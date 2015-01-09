@@ -1,4 +1,6 @@
 use libc::c_int;
+use std;
+use std::mem;
 use std::error::Error;
 use std::str;
 
@@ -106,7 +108,12 @@ impl LmdbError {
 
 impl Error for LmdbError {
     fn description(&self) -> &str {
-        unsafe { str::from_c_str(ffi::mdb_strerror(self.to_err_code()) as *const _) }
+         unsafe {
+            // This is safe since the error messages returned from mdb_strerror are static.
+             let err: &'static *const i8 =
+                 mem::transmute(&(ffi::mdb_strerror(self.to_err_code()) as *const i8));
+             str::from_utf8_unchecked(std::ffi::c_str_to_bytes(err))
+        }
     }
 }
 

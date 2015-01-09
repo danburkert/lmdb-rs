@@ -1,6 +1,7 @@
 use libc::{c_uint, size_t, mode_t};
-use std::c_str::ToCStr;
+use std::ffi::CString;
 use std::io::FilePermission;
+use std::path::BytesContainer;
 use std::ptr;
 use std::sync::Mutex;
 
@@ -177,7 +178,7 @@ impl EnvironmentBuilder {
                                        ffi::mdb_env_close(env))
             }
             lmdb_try_with_cleanup!(ffi::mdb_env_open(env,
-                                                     path.to_c_str().as_ptr(),
+                                                     CString::from_slice(path.container_as_bytes()).as_ptr(),
                                                      self.flags.bits(),
                                                      mode.bits() as mode_t),
                                    ffi::mdb_env_close(env));

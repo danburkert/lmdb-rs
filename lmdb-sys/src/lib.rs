@@ -1,7 +1,8 @@
 #![allow(dead_code, uppercase_variables, non_camel_case_types)]
-#![feature(phase,globs)]
+#![feature(plugin)]
 
-#[phase(plugin)] extern crate bindgen;
+#[plugin]
+extern crate bindgen;
 extern crate libc;
 
 use libc::{size_t, mode_t};

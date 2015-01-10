@@ -1,6 +1,6 @@
 use libc::{c_uint, c_void, size_t};
 use std::{mem, ptr, raw};
-use std::kinds::marker;
+use std::marker;
 use std::io::BufWriter;
 
 use ffi;

@@ -1,6 +1,6 @@
 use libc::{c_void, size_t, c_uint};
 use std::{mem, ptr, raw};
-use std::kinds::marker;
+use std::marker;
 
 use ffi;
 
@@ -255,7 +255,7 @@ impl <'txn> Iterator for Iter<'txn> {
                 // and MDB_EINVAL (and we shouldn't be passing in invalid parameters).
                 // TODO: validate that these are the only failures possible.
                 debug_assert!(err_code == ffi::MDB_NOTFOUND,
-                              "Unexpected LMDB error {}.", LmdbError::from_err_code(err_code));
+                              "Unexpected LMDB error {:?}.", LmdbError::from_err_code(err_code));
                 None
             }
         }

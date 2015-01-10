@@ -80,7 +80,7 @@ pub trait TransactionExt<'env> : Transaction<'env> + Sized {
                 ffi::MDB_SUCCESS => {
                     Ok(mem::transmute(raw::Slice {
                         data: data_val.mv_data as *const u8,
-                        len: data_val.mv_size as uint
+                        len: data_val.mv_size as usize
                     }))
                 },
                 err_code => Err(LmdbError::from_err_code(err_code)),
@@ -317,7 +317,7 @@ impl <'env> RwTransaction<'env> {
             let slice: &'txn mut [u8] =
                 mem::transmute(raw::Slice {
                     data: data_val.mv_data as *const u8,
-                    len: data_val.mv_size as uint
+                    len: data_val.mv_size as usize
                 });
             Ok(BufWriter::new(slice))
         }
@@ -534,7 +534,7 @@ mod test {
         let dir = io::TempDir::new("test").unwrap();
         let env: Arc<Environment> = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
 
-        let n = 10u; // Number of concurrent readers
+        let n = 10us; // Number of concurrent readers
         let barrier = Arc::new(Barrier::new(n + 1));
         let mut futures: Vec<Future<bool>> = Vec::with_capacity(n);
 
@@ -576,7 +576,7 @@ mod test {
         let dir = io::TempDir::new("test").unwrap();
         let env = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
 
-        let n = 10u; // Number of concurrent writers
+        let n = 10us; // Number of concurrent writers
         let mut futures: Vec<Future<bool>> = Vec::with_capacity(n);
 
         let key = "key";
@@ -620,7 +620,7 @@ mod test {
         XorShiftRng::new_unseeded().shuffle(keys.as_mut_slice());
 
         b.iter(|| {
-            let mut i = 0u;
+            let mut i = 0us;
             for key in keys.iter() {
                 i = i + txn.get(db, key.as_bytes()).unwrap().len();
             }

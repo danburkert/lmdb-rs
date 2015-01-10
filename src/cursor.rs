@@ -218,7 +218,7 @@ unsafe fn slice_to_val(slice: Option<&[u8]>) -> ffi::MDB_val {
 unsafe fn val_to_slice<'a>(val: ffi::MDB_val) -> &'a [u8] {
     mem::transmute(raw::Slice {
         data: val.mv_data as *const u8,
-        len: val.mv_size as uint
+        len: val.mv_size as usize
     })
 }
 

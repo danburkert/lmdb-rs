@@ -5,6 +5,7 @@
 //! general, the API is very similar to the LMDB [C-API](http://symas.com/mdb/doc/).
 
 #![feature(unsafe_destructor)]
+#![allow(unstable)]
 
 #[macro_use] extern crate log;
 extern crate libc;

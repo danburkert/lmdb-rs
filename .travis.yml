@@ -12,7 +12,7 @@ before_install:
 install:
   - sudo apt-get install --force-yes libclang-${LLVM_VERSION}-dev
 script:
-  - export LIBCLANG_PATH=/usr/lib/llvm-${LLVM_VERSION}/lib
+  - export LD_PRELOAD=/usr/lib/llvm-${LLVM_VERSION}/lib/libclang.so
   - cargo build -v
   - cargo test -v
   - cargo doc

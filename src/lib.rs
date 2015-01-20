@@ -4,7 +4,7 @@
 //! Provides the minimal amount of abstraction necessary to interact with LMDB safely in Rust. In
 //! general, the API is very similar to the LMDB [C-API](http://symas.com/mdb/doc/).
 
-#![feature(unsafe_destructor)]
+#![feature(unsafe_destructor, optin_builtin_traits)]
 #![allow(unstable)]
 
 #[macro_use] extern crate log;

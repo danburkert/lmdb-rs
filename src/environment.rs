@@ -20,9 +20,6 @@ pub struct Environment {
     dbi_open_mutex: Mutex<()>,
 }
 
-unsafe impl Send for Environment {}
-unsafe impl Sync for Environment {}
-
 impl Environment {
 
     /// Creates a new builder for specifying options for opening an LMDB environment.
@@ -138,6 +135,9 @@ impl Environment {
         ffi::mdb_dbi_close(self.env, db.dbi());
     }
 }
+
+unsafe impl Send for Environment {}
+unsafe impl Sync for Environment {}
 
 impl Drop for Environment {
     fn drop(&mut self) {

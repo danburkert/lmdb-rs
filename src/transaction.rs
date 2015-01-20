@@ -108,10 +108,11 @@ impl<'env, T> TransactionExt<'env> for T where T: Transaction<'env> {}
 /// An LMDB read-only transaction.
 pub struct RoTransaction<'env> {
     txn: *mut ffi::MDB_txn,
-    _no_sync: marker::NoSync,
-    _no_send: marker::NoSend,
-    _contravariant: marker::ContravariantLifetime<'env>,
+    _marker: marker::ContravariantLifetime<'env>,
 }
+
+impl <'env> !Sync for RoTransaction<'env> {}
+impl <'env> !Send for RoTransaction<'env> {}
 
 #[unsafe_destructor]
 impl <'env> Drop for RoTransaction<'env> {
@@ -132,12 +133,7 @@ impl <'env> RoTransaction<'env> {
                                                 ptr::null_mut(),
                                                 ffi::MDB_RDONLY,
                                                 &mut txn)));
-            Ok(RoTransaction {
-                txn: txn,
-                _no_sync: marker::NoSync,
-                _no_send: marker::NoSend,
-                _contravariant: marker::ContravariantLifetime::<'env>,
-            })
+            Ok(RoTransaction { txn: txn, _marker: marker::ContravariantLifetime::<'env> })
         }
     }
 
@@ -157,12 +153,7 @@ impl <'env> RoTransaction<'env> {
             mem::forget(self);
             ffi::mdb_txn_reset(txn)
         };
-        InactiveTransaction {
-            txn: txn,
-            _no_sync: marker::NoSync,
-            _no_send: marker::NoSend,
-            _contravariant: marker::ContravariantLifetime::<'env>,
-        }
+        InactiveTransaction { txn: txn, _marker: marker::ContravariantLifetime::<'env> }
     }
 }
 
@@ -175,9 +166,7 @@ impl <'env> Transaction<'env> for RoTransaction<'env> {
 /// An inactive read-only transaction.
 pub struct InactiveTransaction<'env> {
     txn: *mut ffi::MDB_txn,
-    _no_sync: marker::NoSync,
-    _no_send: marker::NoSend,
-    _contravariant: marker::ContravariantLifetime<'env>,
+    _marker: marker::ContravariantLifetime<'env>,
 }
 
 #[unsafe_destructor]
@@ -199,22 +188,18 @@ impl <'env> InactiveTransaction<'env> {
             mem::forget(self);
             try!(lmdb_result(ffi::mdb_txn_renew(txn)))
         };
-        Ok(RoTransaction {
-            txn: txn,
-            _no_sync: marker::NoSync,
-            _no_send: marker::NoSend,
-            _contravariant: marker::ContravariantLifetime::<'env>,
-        })
+        Ok(RoTransaction { txn: txn, _marker: marker::ContravariantLifetime::<'env> })
     }
 }
 
 /// An LMDB read-write transaction.
 pub struct RwTransaction<'env> {
     txn: *mut ffi::MDB_txn,
-    _no_sync: marker::NoSync,
-    _no_send: marker::NoSend,
-    _contravariant: marker::ContravariantLifetime<'env>,
+    _marker: marker::ContravariantLifetime<'env>,
 }
+
+impl <'env> !Sync for RwTransaction<'env> {}
+impl <'env> !Send for RwTransaction<'env> {}
 
 #[unsafe_destructor]
 impl <'env> Drop for RwTransaction<'env> {
@@ -235,12 +220,7 @@ impl <'env> RwTransaction<'env> {
                                                 ptr::null_mut(),
                                                 EnvironmentFlags::empty().bits(),
                                                 &mut txn)));
-            Ok(RwTransaction {
-                txn: txn,
-                _no_sync: marker::NoSync,
-                _no_send: marker::NoSend,
-                _contravariant: marker::ContravariantLifetime::<'env>,
-            })
+            Ok(RwTransaction { txn: txn, _marker: marker::ContravariantLifetime::<'env> })
         }
     }
 
@@ -372,12 +352,7 @@ impl <'env> RwTransaction<'env> {
             let env: *mut ffi::MDB_env = ffi::mdb_txn_env(self.txn());
             ffi::mdb_txn_begin(env, self.txn(), 0, &mut nested);
         }
-        Ok(RwTransaction {
-            txn: nested,
-            _no_sync: marker::NoSync,
-            _no_send: marker::NoSend,
-            _contravariant: marker::ContravariantLifetime::<'env>,
-        })
+        Ok(RwTransaction { txn: nested, _marker: marker::ContravariantLifetime::<'env> })
     }
 }
 

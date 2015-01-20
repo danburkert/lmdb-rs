@@ -102,9 +102,7 @@ impl<'txn, T> CursorExt<'txn> for T where T: Cursor<'txn> {}
 /// A read-only cursor for navigating the items within a database.
 pub struct RoCursor<'txn> {
     cursor: *mut ffi::MDB_cursor,
-    _no_sync: marker::NoSync,
-    _no_send: marker::NoSend,
-    _contravariant: marker::ContravariantLifetime<'txn>,
+    _marker: marker::ContravariantLifetime<'txn>,
 }
 
 impl <'txn> Cursor<'txn> for RoCursor<'txn> {
@@ -112,6 +110,9 @@ impl <'txn> Cursor<'txn> for RoCursor<'txn> {
         self.cursor
     }
 }
+
+impl <'txn> !Sync for RoCursor<'txn> {}
+impl <'txn> !Send for RoCursor<'txn> {}
 
 #[unsafe_destructor]
 impl <'txn> Drop for RoCursor<'txn> {
@@ -130,9 +131,7 @@ impl <'txn> RoCursor<'txn> {
         unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
         Ok(RoCursor {
             cursor: cursor,
-            _no_sync: marker::NoSync,
-            _no_send: marker::NoSend,
-            _contravariant: marker::ContravariantLifetime::<'txn>,
+            _marker: marker::ContravariantLifetime::<'txn>,
         })
     }
 }
@@ -140,9 +139,7 @@ impl <'txn> RoCursor<'txn> {
 /// A read-only cursor for navigating items within a database.
 pub struct RwCursor<'txn> {
     cursor: *mut ffi::MDB_cursor,
-    _no_sync: marker::NoSync,
-    _no_send: marker::NoSend,
-    _contravariant: marker::ContravariantLifetime<'txn>,
+    _marker: marker::ContravariantLifetime<'txn>,
 }
 
 impl <'txn> Cursor<'txn> for RwCursor<'txn> {
@@ -150,6 +147,9 @@ impl <'txn> Cursor<'txn> for RwCursor<'txn> {
         self.cursor
     }
 }
+
+impl <'txn> !Sync for RwCursor<'txn> {}
+impl <'txn> !Send for RwCursor<'txn> {}
 
 #[unsafe_destructor]
 impl <'txn> Drop for RwCursor<'txn> {
@@ -168,9 +168,7 @@ impl <'txn> RwCursor<'txn> {
         unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
         Ok(RwCursor {
             cursor: cursor,
-            _no_sync: marker::NoSync,
-            _no_send: marker::NoSend,
-            _contravariant: marker::ContravariantLifetime::<'txn>,
+            _marker: marker::ContravariantLifetime::<'txn>,
         })
     }
 

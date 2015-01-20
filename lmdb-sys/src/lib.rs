@@ -6,9 +6,13 @@
     raw_pointer_derive,
     unstable,
    )]
+
 #![feature(plugin)]
 
 extern crate libc;
+
+#[macro_use]
+extern crate bitflags;
 
 pub use constants::*;
 

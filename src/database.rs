@@ -9,7 +9,7 @@ use error::{LmdbResult, lmdb_result};
 /// A handle to an individual database in an environment.
 ///
 /// A database handle denotes the name and parameters of a database in an environment.
-#[derive(Show, Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Database {
     dbi: ffi::MDB_dbi,
 }

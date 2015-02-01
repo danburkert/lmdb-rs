@@ -1,6 +1,6 @@
 use libc::{c_uint, size_t, mode_t};
 use std::ffi::CString;
-use std::io::FilePermission;
+use std::old_io::FilePermission;
 use std::path::BytesContainer;
 use std::ptr;
 use std::sync::Mutex;
@@ -150,7 +150,7 @@ impl Drop for Environment {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Options for opening or creating an environment.
-#[derive(Show, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct EnvironmentBuilder {
     flags: EnvironmentFlags,
     max_readers: Option<c_uint>,
@@ -237,7 +237,7 @@ impl EnvironmentBuilder {
 #[cfg(test)]
 mod test {
 
-    use std::io;
+    use std::old_io as io;
 
     use flags::*;
     use super::*;
@@ -325,7 +325,7 @@ mod test {
             let env = Environment::new().set_flags(READ_ONLY)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
-            assert!(env.sync(true).is_ok());
+            env.sync(true).unwrap();
         }
     }
 }

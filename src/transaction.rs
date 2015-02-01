@@ -1,7 +1,7 @@
 use libc::{c_uint, c_void, size_t};
 use std::{mem, ptr, raw};
 use std::marker;
-use std::io::BufWriter;
+use std::old_io::BufWriter;
 
 use ffi;
 
@@ -365,7 +365,7 @@ impl <'env> Transaction<'env> for RwTransaction<'env> {
 #[cfg(test)]
 mod test {
 
-    use std::io;
+    use std::old_io as io;
     use std::ptr;
     use std::rand::{Rng, XorShiftRng};
     use std::sync::{Arc, Barrier, Future};
@@ -410,7 +410,7 @@ mod test {
         let mut txn = env.begin_rw_txn().unwrap();
         {
             let mut writer = txn.reserve(db, b"key1", 4, WriteFlags::empty()).unwrap();
-            writer.write(b"val1").unwrap();
+            writer.write_all(b"val1").unwrap();
         }
         txn.commit().unwrap();
 

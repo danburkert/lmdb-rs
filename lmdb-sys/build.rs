@@ -1,4 +1,4 @@
-#![allow(unstable)]
+#![feature(collections, io, os, path)]
 
 extern crate "pkg-config" as pkg_config;
 extern crate bindgen;
@@ -6,7 +6,7 @@ extern crate gcc;
 
 use bindgen::{Bindings, BindgenOptions, LinkType};
 use std::default::Default;
-use std::io::fs;
+use std::old_io::fs;
 use std::os;
 
 fn main() {

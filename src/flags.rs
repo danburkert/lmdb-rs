@@ -4,7 +4,7 @@ use ffi::*;
 
 bitflags! {
     #[doc="Environment Options"]
-    #[derive(Show)]
+    #[derive(Debug)]
     flags EnvironmentFlags: c_uint {
 
         #[doc="Use a fixed address for the mmap region. This flag must be specified"]
@@ -105,7 +105,7 @@ bitflags! {
 
 bitflags! {
     #[doc="Database Options"]
-    #[derive(Show)]
+    #[derive(Debug)]
     flags DatabaseFlags: c_uint {
 
         #[doc="Keys are strings to be compared in reverse order, from the end of the strings"]
@@ -141,7 +141,7 @@ bitflags! {
 
 bitflags! {
     #[doc="Write Options"]
-    #[derive(Show)]
+    #[derive(Debug)]
     flags WriteFlags: c_uint {
 
         #[doc="Insert the new item only if the key does not already appear in the database."]

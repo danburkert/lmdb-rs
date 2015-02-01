@@ -296,7 +296,8 @@ impl <'txn> Iterator for IterDup<'txn> {
 #[cfg(test)]
 mod test {
 
-    use std::{io, ptr};
+    use std::old_io as io;
+    use std::ptr;
     use test::{Bencher, black_box};
 
     use ffi::*;

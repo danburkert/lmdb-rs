@@ -2,11 +2,12 @@ use libc::c_int;
 use std;
 use std::mem;
 use std::error::Error;
+use std::fmt;
 use std::str;
 
 use ffi;
 
-#[derive(Show, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum LmdbError {
     /// key/data pair already exists.
     KeyExist,
@@ -103,6 +104,12 @@ impl LmdbError {
             LmdbError::BadDbi          => ffi::MDB_BAD_DBI,
             LmdbError::Other(err_code) => err_code,
         }
+    }
+}
+
+impl fmt::Display for LmdbError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "{}", self.description())
     }
 }
 

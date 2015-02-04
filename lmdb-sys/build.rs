@@ -1,4 +1,4 @@
-#![feature(collections, io, os, path)]
+#![feature(io, os, path)]
 
 extern crate "pkg-config" as pkg_config;
 extern crate bindgen;

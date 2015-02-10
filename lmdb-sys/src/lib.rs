@@ -14,7 +14,7 @@ extern crate libc;
 extern crate bitflags;
 
 pub use constants::*;
+pub use ffi::*;
 
+mod ffi;
 mod constants;
-
-include!(concat!(env!("OUT_DIR"), "/lmdb.rs"));

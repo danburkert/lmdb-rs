@@ -1,33 +1,30 @@
-#![feature(io, os, path)]
+#![feature(env, path)]
 
 extern crate "pkg-config" as pkg_config;
-extern crate bindgen;
 extern crate gcc;
 
-use bindgen::{Bindings, BindgenOptions, LinkType};
 use std::default::Default;
-use std::old_io::fs;
 use std::os;
+use std::env;
+use std::path::PathBuf;
 
 fn main() {
 
-    let mdb = Path::new(os::getenv("CARGO_MANIFEST_DIR").unwrap())
-                   .join_many(&["mdb", "libraries", "liblmdb"]);
+    let mut lmdb: PathBuf = PathBuf::new(&env::var("CARGO_MANIFEST_DIR").unwrap());
+    lmdb.push("mdb");
+    lmdb.push("libraries");
+    lmdb.push("liblmdb");
+
+    let mut mdb: PathBuf = lmdb.clone();
+    let mut midl: PathBuf = lmdb.clone();
+
+    mdb.push("mdb.c");
+    midl.push("midl.c");
 
     if !pkg_config::find_library("liblmdb").is_ok() {
         gcc::compile_library("liblmdb.a",
                              &Default::default(),
-                             &[mdb.join("mdb.c").as_str().unwrap(),
-                               mdb.join("midl.c").as_str().unwrap()]);
+                             &[(*mdb).to_str().unwrap(),
+                               (*midl).to_str().unwrap()]);
     }
-
-    let mut bindgen_opts: BindgenOptions = Default::default();
-    bindgen_opts.clang_args.push(mdb.join("lmdb.h").as_str().unwrap().to_string());
-    bindgen_opts.links.push(("lmdb".to_string(), LinkType::Default));
-    bindgen_opts.builtins = true;
-
-    let bindings: Bindings = Bindings::generate(&bindgen_opts, None, None).unwrap();
-    let mut dst = fs::File::create(&Path::new(os::getenv("OUT_DIR").unwrap())
-                                         .join("lmdb.rs")).unwrap();
-    bindings.write(&mut dst).unwrap()
 }

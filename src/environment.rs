@@ -1,7 +1,8 @@
 use libc::{c_uint, size_t, mode_t};
-use std::ffi::CString;
+use std::ffi::{AsOsStr, CString};
+use std::os::unix::OsStrExt;
 use std::old_io::FilePermission;
-use std::path::BytesContainer;
+use std::path::Path;
 use std::ptr;
 use std::sync::Mutex;
 
@@ -178,7 +179,7 @@ impl EnvironmentBuilder {
                                        ffi::mdb_env_close(env))
             }
             lmdb_try_with_cleanup!(ffi::mdb_env_open(env,
-                                                     CString::from_slice(path.container_as_bytes()).as_ptr(),
+                                                     CString::from_slice(path.as_os_str().as_byte_slice()).as_ptr(),
                                                      self.flags.bits(),
                                                      mode.bits() as mode_t),
                                    ffi::mdb_env_close(env));

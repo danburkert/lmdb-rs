@@ -4,7 +4,6 @@ extern crate "pkg-config" as pkg_config;
 extern crate gcc;
 
 use std::default::Default;
-use std::os;
 use std::env;
 use std::path::PathBuf;
 

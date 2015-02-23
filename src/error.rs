@@ -1,9 +1,7 @@
 use libc::c_int;
-use std;
-use std::mem;
 use std::error::Error;
-use std::fmt;
-use std::str;
+use std::ffi::CStr;
+use std::{fmt, str};
 
 use ffi;
 
@@ -115,11 +113,10 @@ impl fmt::Display for LmdbError {
 
 impl Error for LmdbError {
     fn description(&self) -> &str {
-         unsafe {
+        unsafe {
             // This is safe since the error messages returned from mdb_strerror are static.
-             let err: &'static *const i8 =
-                 mem::transmute(&(ffi::mdb_strerror(self.to_err_code()) as *const i8));
-             str::from_utf8_unchecked(std::ffi::c_str_to_bytes(err))
+            let err: *const i8 = ffi::mdb_strerror(self.to_err_code()) as *const i8;
+            str::from_utf8_unchecked(CStr::from_ptr(err).to_bytes())
         }
     }
 }

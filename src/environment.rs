@@ -53,6 +53,8 @@ impl Environment {
     ///
     /// This function will fail with `LmdbError::BadRslot` if called by a thread which has an ongoing
     /// transaction.
+    ///
+    /// The database name may not contain the null character.
     pub fn open_db<'env>(&'env self, name: Option<&str>) -> LmdbResult<Database> {
         let mutex = self.dbi_open_mutex.lock();
         let txn = try!(self.begin_ro_txn());
@@ -162,6 +164,8 @@ pub struct EnvironmentBuilder {
 impl EnvironmentBuilder {
 
     /// Open an environment.
+    ///
+    /// The path may not contain the null character.
     pub fn open(&self, path: &Path, mode: FilePermission) -> LmdbResult<Environment> {
         let mut env: *mut ffi::MDB_env = ptr::null_mut();
         unsafe {
@@ -179,7 +183,7 @@ impl EnvironmentBuilder {
                                        ffi::mdb_env_close(env))
             }
             lmdb_try_with_cleanup!(ffi::mdb_env_open(env,
-                                                     CString::from_slice(path.as_os_str().as_bytes()).as_ptr(),
+                                                     CString::new(path.as_os_str().as_bytes()).unwrap().as_ptr(),
                                                      self.flags.bits(),
                                                      mode.bits() as mode_t),
                                    ffi::mdb_env_close(env));

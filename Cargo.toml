@@ -1,14 +1,15 @@
 [package]
 
 name = "lmdb"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Dan Burkert <dan@danburkert.com>"]
 license = "Apache-2.0"
 
-description = "Safe Rust bindings for LMDB"
+description = "Idiomatic and safe LMDB wrapper."
 repository = "https://github.com/danburkert/lmdb-rs.git"
 readme = "README.md"
-keywords = ["LMDB", "database", "storage-engine", "key-value-store", "bindings", "library"]
+keywords = ["LMDB", "database", "storage-engine", "bindings", "library"]
+documentation = "http://rust-ci.org/danburkert/lmdb-rs/doc/lmdb/"
 
 [lib]
 
@@ -16,6 +17,7 @@ name = "lmdb"
 
 [dependencies.lmdb-sys]
 path = "lmdb-sys"
+version = "0.3.0"
 
 [dependencies]
 bitflags = "*"

@@ -10,9 +10,6 @@
 
 extern crate libc;
 
-#[macro_use]
-extern crate bitflags;
-
 pub use constants::*;
 pub use ffi::*;
 

@@ -1,9 +1,14 @@
 [package]
 
 name = "lmdb-sys"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Dan Burkert <dan@danburkert.com>"]
 license = "Apache-2.0"
+description = "Rust bindings for liblmdb."
+repository = "https://github.com/danburkert/lmdb-rs.git"
+readme = "../README.md"
+documentation = "http://rust-ci.org/danburkert/lmdb-rs/doc/lmdb-sys/"
+
 
 links = "lmdb"
 build = "build.rs"
@@ -15,6 +20,3 @@ name = "lmdb-sys"
 [build-dependencies]
 pkg-config = "*"
 gcc = "*"
-
-[dependencies]
-bitflags = "*"

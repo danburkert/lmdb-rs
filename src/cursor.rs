@@ -1,16 +1,15 @@
 use libc::{c_void, size_t, c_uint};
 use std::{mem, ptr, raw};
-use std::marker;
-
-use ffi;
+use std::marker::{PhantomData, PhantomFn};
 
 use database::Database;
 use error::{LmdbResult, lmdb_result, LmdbError};
+use ffi;
 use flags::WriteFlags;
 use transaction::Transaction;
 
 /// An LMDB cursor.
-pub trait Cursor<'txn> {
+pub trait Cursor<'txn> : PhantomFn<(), &'txn [u8]> {
     /// Returns a raw pointer to the underlying LMDB cursor.
     ///
     /// The caller **must** ensure that the pointer is not used after the lifetime of the cursor.
@@ -102,7 +101,7 @@ impl<'txn, T> CursorExt<'txn> for T where T: Cursor<'txn> {}
 /// A read-only cursor for navigating the items within a database.
 pub struct RoCursor<'txn> {
     cursor: *mut ffi::MDB_cursor,
-    _marker: marker::ContravariantLifetime<'txn>,
+    _marker: PhantomData<fn() -> &'txn ()>,
 }
 
 impl <'txn> Cursor<'txn> for RoCursor<'txn> {
@@ -131,7 +130,7 @@ impl <'txn> RoCursor<'txn> {
         unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
         Ok(RoCursor {
             cursor: cursor,
-            _marker: marker::ContravariantLifetime::<'txn>,
+            _marker: PhantomData,
         })
     }
 }
@@ -139,7 +138,7 @@ impl <'txn> RoCursor<'txn> {
 /// A read-only cursor for navigating items within a database.
 pub struct RwCursor<'txn> {
     cursor: *mut ffi::MDB_cursor,
-    _marker: marker::ContravariantLifetime<'txn>,
+    _marker: PhantomData<fn() -> &'txn ()>,
 }
 
 impl <'txn> Cursor<'txn> for RwCursor<'txn> {
@@ -166,10 +165,7 @@ impl <'txn> RwCursor<'txn> {
     pub fn new(txn: &'txn Transaction, db: Database) -> LmdbResult<RwCursor<'txn>> {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
         unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
-        Ok(RwCursor {
-            cursor: cursor,
-            _marker: marker::ContravariantLifetime::<'txn>,
-        })
+        Ok(RwCursor { cursor: cursor, _marker: PhantomData })
     }
 
     /// Puts a key/data pair into the database. The cursor will be positioned at the new data item,
@@ -224,13 +220,14 @@ pub struct Iter<'txn> {
     cursor: *mut ffi::MDB_cursor,
     op: c_uint,
     next_op: c_uint,
+    _marker: PhantomData<fn(&'txn ())>,
 }
 
 impl <'txn> Iter<'txn> {
 
     /// Creates a new iterator backed by the given cursor.
     fn new<'t>(cursor: *mut ffi::MDB_cursor, op: c_uint, next_op: c_uint) -> Iter<'t> {
-        Iter { cursor: cursor, op: op, next_op: next_op }
+        Iter { cursor: cursor, op: op, next_op: next_op, _marker: PhantomData }
     }
 }
 
@@ -263,13 +260,14 @@ impl <'txn> Iterator for Iter<'txn> {
 pub struct IterDup<'txn> {
     cursor: *mut ffi::MDB_cursor,
     op: c_uint,
+    _marker: PhantomData<fn(&'txn ())>,
 }
 
 impl <'txn> IterDup<'txn> {
 
     /// Creates a new iterator backed by the given cursor.
     fn new<'t>(cursor: *mut ffi::MDB_cursor, op: c_uint) -> IterDup<'t> {
-        IterDup { cursor: cursor, op: op}
+        IterDup { cursor: cursor, op: op, _marker: PhantomData }
     }
 }
 
@@ -305,12 +303,13 @@ mod test {
     use environment::*;
     use flags::*;
     use super::*;
+    use tempdir;
     use test_utils::*;
     use transaction::*;
 
     #[test]
     fn test_get() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -340,7 +339,7 @@ mod test {
 
     #[test]
     fn test_get_dup() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.create_db(None, DUP_SORT).unwrap();
 
@@ -386,7 +385,7 @@ mod test {
 
     #[test]
     fn test_get_dupfixed() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.create_db(None, DUP_SORT | DUP_FIXED).unwrap();
 
@@ -408,7 +407,7 @@ mod test {
 
     #[test]
     fn test_iter() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -440,7 +439,7 @@ mod test {
 
     #[test]
     fn test_iter_dup() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.create_db(None, DUP_SORT).unwrap();
 
@@ -487,7 +486,7 @@ mod test {
 
     #[test]
     fn test_put_del() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 

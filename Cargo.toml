@@ -17,5 +17,9 @@ name = "lmdb"
 [dependencies.lmdb-sys]
 path = "lmdb-sys"
 
-[dependencies.bitflags]
-version = "*"
+[dependencies]
+bitflags = "*"
+
+[dev-dependencies]
+tempdir = "*"
+rand = "*"

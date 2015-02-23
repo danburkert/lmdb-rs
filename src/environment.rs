@@ -179,7 +179,7 @@ impl EnvironmentBuilder {
                                        ffi::mdb_env_close(env))
             }
             lmdb_try_with_cleanup!(ffi::mdb_env_open(env,
-                                                     CString::from_slice(path.as_os_str().as_byte_slice()).as_ptr(),
+                                                     CString::from_slice(path.as_os_str().as_bytes()).as_ptr(),
                                                      self.flags.bits(),
                                                      mode.bits() as mode_t),
                                    ffi::mdb_env_close(env));
@@ -241,11 +241,13 @@ mod test {
     use std::old_io as io;
 
     use flags::*;
+    use tempdir;
+
     use super::*;
 
     #[test]
     fn test_open() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
 
         // opening non-existent env with read-only should fail
         assert!(Environment::new().set_flags(READ_ONLY)
@@ -263,7 +265,7 @@ mod test {
 
     #[test]
     fn test_begin_txn() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
 
         { // writable environment
             let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
@@ -284,7 +286,7 @@ mod test {
 
     #[test]
     fn test_open_db() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(1)
                                     .open(dir.path(), io::USER_RWX)
                                     .unwrap();
@@ -295,7 +297,7 @@ mod test {
 
     #[test]
     fn test_create_db() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(11)
                                     .open(dir.path(), io::USER_RWX)
                                     .unwrap();
@@ -306,7 +308,7 @@ mod test {
 
     #[test]
     fn test_close_database() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let mut env = Environment::new().set_max_dbs(10)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
@@ -318,7 +320,7 @@ mod test {
 
     #[test]
     fn test_sync() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         {
             let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
             assert!(env.sync(true).is_ok());
@@ -326,7 +328,7 @@ mod test {
             let env = Environment::new().set_flags(READ_ONLY)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
-            env.sync(true).unwrap();
+            assert!(env.sync(true).is_err());
         }
     }
 }

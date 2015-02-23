@@ -4,16 +4,16 @@
 //! Provides the minimal amount of abstraction necessary to interact with LMDB safely in Rust. In
 //! general, the API is very similar to the LMDB [C-API](http://symas.com/mdb/doc/).
 
-#![feature(collections, core, hash, io, libc, optin_builtin_traits, std_misc, test, unsafe_destructor)]
-#![cfg_attr(test, feature(rand))]
+#![feature(core, libc, old_io, optin_builtin_traits, path, std_misc, unsafe_destructor)]
+#![cfg_attr(test, feature(test))]
 
 extern crate libc;
 extern crate "lmdb-sys" as ffi;
 
-extern crate test;
-extern crate collections;
-#[macro_use]
-extern crate bitflags;
+#[cfg(test)] extern crate rand;
+#[cfg(test)] extern crate tempdir;
+#[cfg(test)] extern crate test;
+#[macro_use] extern crate bitflags;
 
 pub use cursor::{
     Cursor,
@@ -66,6 +66,8 @@ mod test_utils {
 
     use std::old_io as io;
 
+    use tempdir;
+
     use super::*;
 
     pub fn get_key(n: u32) -> String {
@@ -76,8 +78,8 @@ mod test_utils {
         format!("data{}", n)
     }
 
-    pub fn setup_bench_db<'a>(num_rows: u32) -> (io::TempDir, Environment) {
-        let dir = io::TempDir::new("test").unwrap();
+    pub fn setup_bench_db<'a>(num_rows: u32) -> (tempdir::TempDir, Environment) {
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
 
         {

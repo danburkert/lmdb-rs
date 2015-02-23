@@ -3,7 +3,6 @@
 extern crate "pkg-config" as pkg_config;
 extern crate gcc;
 
-use std::default::Default;
 use std::env;
 use std::path::PathBuf;
 
@@ -22,7 +21,6 @@ fn main() {
 
     if !pkg_config::find_library("liblmdb").is_ok() {
         gcc::compile_library("liblmdb.a",
-                             &Default::default(),
                              &[(*mdb).to_str().unwrap(),
                                (*midl).to_str().unwrap()]);
     }

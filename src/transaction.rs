@@ -1,6 +1,6 @@
 use libc::{c_uint, c_void, size_t};
 use std::{mem, ptr, raw};
-use std::marker;
+use std::marker::{PhantomData, PhantomFn} ;
 use std::old_io::BufWriter;
 
 use ffi;
@@ -14,7 +14,7 @@ use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 /// An LMDB transaction.
 ///
 /// All database operations require a transaction.
-pub trait Transaction<'env> {
+pub trait Transaction<'env> : PhantomFn<(), &'env Environment> {
 
     /// Returns a raw pointer to the underlying LMDB transaction.
     ///
@@ -108,7 +108,7 @@ impl<'env, T> TransactionExt<'env> for T where T: Transaction<'env> {}
 /// An LMDB read-only transaction.
 pub struct RoTransaction<'env> {
     txn: *mut ffi::MDB_txn,
-    _marker: marker::ContravariantLifetime<'env>,
+    _marker: PhantomData<&'env ()>,
 }
 
 impl <'env> !Sync for RoTransaction<'env> {}
@@ -133,7 +133,7 @@ impl <'env> RoTransaction<'env> {
                                                 ptr::null_mut(),
                                                 ffi::MDB_RDONLY,
                                                 &mut txn)));
-            Ok(RoTransaction { txn: txn, _marker: marker::ContravariantLifetime::<'env> })
+            Ok(RoTransaction { txn: txn, _marker: PhantomData })
         }
     }
 
@@ -153,7 +153,7 @@ impl <'env> RoTransaction<'env> {
             mem::forget(self);
             ffi::mdb_txn_reset(txn)
         };
-        InactiveTransaction { txn: txn, _marker: marker::ContravariantLifetime::<'env> }
+        InactiveTransaction { txn: txn, _marker: PhantomData }
     }
 }
 
@@ -166,7 +166,7 @@ impl <'env> Transaction<'env> for RoTransaction<'env> {
 /// An inactive read-only transaction.
 pub struct InactiveTransaction<'env> {
     txn: *mut ffi::MDB_txn,
-    _marker: marker::ContravariantLifetime<'env>,
+    _marker: PhantomData<&'env ()>,
 }
 
 #[unsafe_destructor]
@@ -188,14 +188,14 @@ impl <'env> InactiveTransaction<'env> {
             mem::forget(self);
             try!(lmdb_result(ffi::mdb_txn_renew(txn)))
         };
-        Ok(RoTransaction { txn: txn, _marker: marker::ContravariantLifetime::<'env> })
+        Ok(RoTransaction { txn: txn, _marker: PhantomData })
     }
 }
 
 /// An LMDB read-write transaction.
 pub struct RwTransaction<'env> {
     txn: *mut ffi::MDB_txn,
-    _marker: marker::ContravariantLifetime<'env>,
+    _marker: PhantomData<&'env ()>,
 }
 
 impl <'env> !Sync for RwTransaction<'env> {}
@@ -220,7 +220,7 @@ impl <'env> RwTransaction<'env> {
                                                 ptr::null_mut(),
                                                 EnvironmentFlags::empty().bits(),
                                                 &mut txn)));
-            Ok(RwTransaction { txn: txn, _marker: marker::ContravariantLifetime::<'env> })
+            Ok(RwTransaction { txn: txn, _marker: PhantomData })
         }
     }
 
@@ -352,7 +352,7 @@ impl <'env> RwTransaction<'env> {
             let env: *mut ffi::MDB_env = ffi::mdb_txn_env(self.txn());
             ffi::mdb_txn_begin(env, self.txn(), 0, &mut nested);
         }
-        Ok(RwTransaction { txn: nested, _marker: marker::ContravariantLifetime::<'env> })
+        Ok(RwTransaction { txn: nested, _marker: PhantomData })
     }
 }
 
@@ -367,7 +367,7 @@ mod test {
 
     use std::old_io as io;
     use std::ptr;
-    use std::rand::{Rng, XorShiftRng};
+    use rand::{Rng, XorShiftRng};
     use std::sync::{Arc, Barrier, Future};
     use test::{Bencher, black_box};
 
@@ -377,11 +377,12 @@ mod test {
     use error::*;
     use flags::*;
     use super::*;
+    use tempdir;
     use test_utils::*;
 
     #[test]
     fn test_put_get_del() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -403,7 +404,7 @@ mod test {
 
     #[test]
     fn test_reserve() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -424,7 +425,7 @@ mod test {
 
     #[test]
     fn test_inactive_txn() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -442,7 +443,7 @@ mod test {
 
     #[test]
     fn test_nested_txn() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -462,7 +463,7 @@ mod test {
 
     #[test]
     fn test_clear_db() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -485,7 +486,7 @@ mod test {
 
     #[test]
     fn test_drop_db() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(2)
                                         .open(dir.path(), io::USER_RWX).unwrap();
         let db = env.create_db(Some("test"), DatabaseFlags::empty()).unwrap();
@@ -506,10 +507,10 @@ mod test {
 
     #[test]
     fn test_concurrent_readers_single_writer() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env: Arc<Environment> = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
 
-        let n = 10us; // Number of concurrent readers
+        let n = 10usize; // Number of concurrent readers
         let barrier = Arc::new(Barrier::new(n + 1));
         let mut futures: Vec<Future<bool>> = Vec::with_capacity(n);
 
@@ -548,10 +549,10 @@ mod test {
 
     #[test]
     fn test_concurrent_writers() {
-        let dir = io::TempDir::new("test").unwrap();
+        let dir = tempdir::TempDir::new("test").unwrap();
         let env = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
 
-        let n = 10us; // Number of concurrent writers
+        let n = 10usize; // Number of concurrent writers
         let mut futures: Vec<Future<bool>> = Vec::with_capacity(n);
 
         let key = "key";
@@ -595,7 +596,7 @@ mod test {
         XorShiftRng::new_unseeded().shuffle(keys.as_mut_slice());
 
         b.iter(|| {
-            let mut i = 0us;
+            let mut i = 0usize;
             for key in keys.iter() {
                 i = i + txn.get(db, key.as_bytes()).unwrap().len();
             }

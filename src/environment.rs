@@ -8,7 +8,7 @@ use std::sync::Mutex;
 
 use ffi;
 
-use error::{LmdbResult, lmdb_result};
+use error::{Result, lmdb_result};
 use database::Database;
 use transaction::{RoTransaction, RwTransaction, Transaction, TransactionExt};
 use flags::{DatabaseFlags, EnvironmentFlags};
@@ -51,11 +51,11 @@ impl Environment {
     ///
     /// The returned database handle may be shared among any transaction in the environment.
     ///
-    /// This function will fail with `LmdbError::BadRslot` if called by a thread which has an ongoing
+    /// This function will fail with `Error::BadRslot` if called by a thread which has an ongoing
     /// transaction.
     ///
     /// The database name may not contain the null character.
-    pub fn open_db<'env>(&'env self, name: Option<&str>) -> LmdbResult<Database> {
+    pub fn open_db<'env>(&'env self, name: Option<&str>) -> Result<Database> {
         let mutex = self.dbi_open_mutex.lock();
         let txn = try!(self.begin_ro_txn());
         let db = unsafe { try!(txn.open_db(name)) };
@@ -76,12 +76,12 @@ impl Environment {
     ///
     /// The returned database handle may be shared among any transaction in the environment.
     ///
-    /// This function will fail with `LmdbError::BadRslot` if called by a thread with an open
+    /// This function will fail with `Error::BadRslot` if called by a thread with an open
     /// transaction.
     pub fn create_db<'env>(&'env self,
                            name: Option<&str>,
                            flags: DatabaseFlags)
-                           -> LmdbResult<Database> {
+                           -> Result<Database> {
         let mutex = self.dbi_open_mutex.lock();
         let txn = try!(self.begin_rw_txn());
         let db = unsafe { try!(txn.create_db(name, flags)) };
@@ -90,7 +90,7 @@ impl Environment {
         Ok(db)
     }
 
-    pub fn get_db_flags<'env>(&'env self, db: Database) -> LmdbResult<DatabaseFlags> {
+    pub fn get_db_flags<'env>(&'env self, db: Database) -> Result<DatabaseFlags> {
         let txn = try!(self.begin_ro_txn());
         let mut flags: c_uint = 0;
         unsafe {
@@ -100,13 +100,13 @@ impl Environment {
     }
 
     /// Create a read-only transaction for use with the environment.
-    pub fn begin_ro_txn<'env>(&'env self) -> LmdbResult<RoTransaction<'env>> {
+    pub fn begin_ro_txn<'env>(&'env self) -> Result<RoTransaction<'env>> {
         RoTransaction::new(self)
     }
 
     /// Create a read-write transaction for use with the environment. This method will block while
     /// there are any other read-write transactions open on the environment.
-    pub fn begin_rw_txn<'env>(&'env self) -> LmdbResult<RwTransaction<'env>> {
+    pub fn begin_rw_txn<'env>(&'env self) -> Result<RwTransaction<'env>> {
         RwTransaction::new(self)
     }
 
@@ -115,7 +115,7 @@ impl Environment {
     /// Data is always written to disk when `Transaction::commit` is called, but the operating
     /// system may keep it buffered. LMDB always flushes the OS buffers upon commit as well, unless
     /// the environment was opened with `MDB_NOSYNC` or in part `MDB_NOMETASYNC`.
-    pub fn sync(&self, force: bool) -> LmdbResult<()> {
+    pub fn sync(&self, force: bool) -> Result<()> {
         unsafe {
             lmdb_result(ffi::mdb_env_sync(self.env(), if force { 1 } else { 0 }))
         }
@@ -133,7 +133,7 @@ impl Environment {
     /// only if no other threads are going to reference the database handle or one of its cursors
     /// any further. Do not close a handle if an existing transaction has modified its database.
     /// Doing so can cause misbehavior from database corruption to errors like
-    /// `LmdbError::BadValSize` (since the DB name is gone).
+    /// `Error::BadValSize` (since the DB name is gone).
     pub unsafe fn close_db(&mut self, db: Database) {
         ffi::mdb_dbi_close(self.env, db.dbi());
     }
@@ -166,7 +166,7 @@ impl EnvironmentBuilder {
     /// Open an environment.
     ///
     /// The path may not contain the null character.
-    pub fn open(&self, path: &Path, mode: FilePermission) -> LmdbResult<Environment> {
+    pub fn open(&self, path: &Path, mode: FilePermission) -> Result<Environment> {
         let mut env: *mut ffi::MDB_env = ptr::null_mut();
         unsafe {
             lmdb_try!(ffi::mdb_env_create(&mut env));

@@ -1,8 +1,5 @@
-//! Safe Rust bindings for the [Symas Lightning Memory-Mapped Database(LMDB)]
-//! (http://symas.com/mdb/).
-//!
-//! Provides the minimal amount of abstraction necessary to interact with LMDB safely in Rust. In
-//! general, the API is very similar to the LMDB [C-API](http://symas.com/mdb/doc/).
+//! Idiomatic and safe APIs for interacting with the
+//! [Symas Lightning Memory-Mapped Database (LMDB)](http://symas.com/mdb/).
 
 #![feature(core, libc, old_io, optin_builtin_traits, path, std_misc, unsafe_destructor)]
 #![cfg_attr(test, feature(test))]
@@ -23,7 +20,7 @@ pub use cursor::{
 };
 pub use database::Database;
 pub use environment::{Environment, EnvironmentBuilder};
-pub use error::{LmdbResult, LmdbError};
+pub use error::{Error, Result};
 pub use flags::*;
 pub use transaction::{
     InactiveTransaction,
@@ -37,7 +34,7 @@ macro_rules! lmdb_try {
     ($expr:expr) => ({
         match $expr {
             ::ffi::MDB_SUCCESS => (),
-            err_code => return Err(::std::error::FromError::from_error(::LmdbError::from_err_code(err_code))),
+            err_code => return Err(::std::error::FromError::from_error(::Error::from_err_code(err_code))),
         }
     })
 }
@@ -48,7 +45,7 @@ macro_rules! lmdb_try_with_cleanup {
             ::ffi::MDB_SUCCESS => (),
             err_code => {
                 let _ = $cleanup;
-                return Err(::std::error::FromError::from_error(::LmdbError::from_err_code(err_code)))
+                return Err(::std::error::FromError::from_error(::Error::from_err_code(err_code)))
             },
         }
     })

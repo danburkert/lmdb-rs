@@ -1,12 +1,12 @@
 use libc::c_int;
-use std::error::Error;
+use std::error::Error as StdError;
 use std::ffi::CStr;
-use std::{fmt, str};
+use std::{fmt, result, str};
 
 use ffi;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum LmdbError {
+pub enum Error {
     /// key/data pair already exists.
     KeyExist,
     /// key/data pair not found (EOF).
@@ -51,67 +51,67 @@ pub enum LmdbError {
     Other(c_int),
 }
 
-impl LmdbError {
-    pub fn from_err_code(err_code: c_int) -> LmdbError {
+impl Error {
+    pub fn from_err_code(err_code: c_int) -> Error {
         match err_code {
-            ffi::MDB_KEYEXIST         => LmdbError::KeyExist,
-            ffi::MDB_NOTFOUND         => LmdbError::NotFound,
-            ffi::MDB_PAGE_NOTFOUND    => LmdbError::PageNotFound,
-            ffi::MDB_CORRUPTED        => LmdbError::Corrupted,
-            ffi::MDB_PANIC            => LmdbError::Panic,
-            ffi::MDB_VERSION_MISMATCH => LmdbError::VersionMismatch,
-            ffi::MDB_INVALID          => LmdbError::Invalid,
-            ffi::MDB_MAP_FULL         => LmdbError::MapFull,
-            ffi::MDB_DBS_FULL         => LmdbError::DbsFull,
-            ffi::MDB_READERS_FULL     => LmdbError::ReadersFull,
-            ffi::MDB_TLS_FULL         => LmdbError::TlsFull,
-            ffi::MDB_TXN_FULL         => LmdbError::TxnFull,
-            ffi::MDB_CURSOR_FULL      => LmdbError::CursorFull,
-            ffi::MDB_PAGE_FULL        => LmdbError::PageFull,
-            ffi::MDB_MAP_RESIZED      => LmdbError::MapResized,
-            ffi::MDB_INCOMPATIBLE     => LmdbError::Incompatible,
-            ffi::MDB_BAD_RSLOT        => LmdbError::BadRslot,
-            ffi::MDB_BAD_TXN          => LmdbError::BadTxn,
-            ffi::MDB_BAD_VALSIZE      => LmdbError::BadValSize,
-            ffi::MDB_BAD_DBI          => LmdbError::BadDbi,
-            other                     => LmdbError::Other(other),
+            ffi::MDB_KEYEXIST         => Error::KeyExist,
+            ffi::MDB_NOTFOUND         => Error::NotFound,
+            ffi::MDB_PAGE_NOTFOUND    => Error::PageNotFound,
+            ffi::MDB_CORRUPTED        => Error::Corrupted,
+            ffi::MDB_PANIC            => Error::Panic,
+            ffi::MDB_VERSION_MISMATCH => Error::VersionMismatch,
+            ffi::MDB_INVALID          => Error::Invalid,
+            ffi::MDB_MAP_FULL         => Error::MapFull,
+            ffi::MDB_DBS_FULL         => Error::DbsFull,
+            ffi::MDB_READERS_FULL     => Error::ReadersFull,
+            ffi::MDB_TLS_FULL         => Error::TlsFull,
+            ffi::MDB_TXN_FULL         => Error::TxnFull,
+            ffi::MDB_CURSOR_FULL      => Error::CursorFull,
+            ffi::MDB_PAGE_FULL        => Error::PageFull,
+            ffi::MDB_MAP_RESIZED      => Error::MapResized,
+            ffi::MDB_INCOMPATIBLE     => Error::Incompatible,
+            ffi::MDB_BAD_RSLOT        => Error::BadRslot,
+            ffi::MDB_BAD_TXN          => Error::BadTxn,
+            ffi::MDB_BAD_VALSIZE      => Error::BadValSize,
+            ffi::MDB_BAD_DBI          => Error::BadDbi,
+            other                     => Error::Other(other),
         }
     }
 
     pub fn to_err_code(&self) -> c_int {
         match *self {
-            LmdbError::KeyExist        => ffi::MDB_KEYEXIST,
-            LmdbError::NotFound        => ffi::MDB_NOTFOUND,
-            LmdbError::PageNotFound    => ffi::MDB_PAGE_NOTFOUND,
-            LmdbError::Corrupted       => ffi::MDB_CORRUPTED,
-            LmdbError::Panic           => ffi::MDB_PANIC,
-            LmdbError::VersionMismatch => ffi::MDB_VERSION_MISMATCH,
-            LmdbError::Invalid         => ffi::MDB_INVALID,
-            LmdbError::MapFull         => ffi::MDB_MAP_FULL,
-            LmdbError::DbsFull         => ffi::MDB_DBS_FULL,
-            LmdbError::ReadersFull     => ffi::MDB_READERS_FULL,
-            LmdbError::TlsFull         => ffi::MDB_TLS_FULL,
-            LmdbError::TxnFull         => ffi::MDB_TXN_FULL,
-            LmdbError::CursorFull      => ffi::MDB_CURSOR_FULL,
-            LmdbError::PageFull        => ffi::MDB_PAGE_FULL,
-            LmdbError::MapResized      => ffi::MDB_MAP_RESIZED,
-            LmdbError::Incompatible    => ffi::MDB_INCOMPATIBLE,
-            LmdbError::BadRslot        => ffi::MDB_BAD_RSLOT,
-            LmdbError::BadTxn          => ffi::MDB_BAD_TXN,
-            LmdbError::BadValSize      => ffi::MDB_BAD_VALSIZE,
-            LmdbError::BadDbi          => ffi::MDB_BAD_DBI,
-            LmdbError::Other(err_code) => err_code,
+            Error::KeyExist        => ffi::MDB_KEYEXIST,
+            Error::NotFound        => ffi::MDB_NOTFOUND,
+            Error::PageNotFound    => ffi::MDB_PAGE_NOTFOUND,
+            Error::Corrupted       => ffi::MDB_CORRUPTED,
+            Error::Panic           => ffi::MDB_PANIC,
+            Error::VersionMismatch => ffi::MDB_VERSION_MISMATCH,
+            Error::Invalid         => ffi::MDB_INVALID,
+            Error::MapFull         => ffi::MDB_MAP_FULL,
+            Error::DbsFull         => ffi::MDB_DBS_FULL,
+            Error::ReadersFull     => ffi::MDB_READERS_FULL,
+            Error::TlsFull         => ffi::MDB_TLS_FULL,
+            Error::TxnFull         => ffi::MDB_TXN_FULL,
+            Error::CursorFull      => ffi::MDB_CURSOR_FULL,
+            Error::PageFull        => ffi::MDB_PAGE_FULL,
+            Error::MapResized      => ffi::MDB_MAP_RESIZED,
+            Error::Incompatible    => ffi::MDB_INCOMPATIBLE,
+            Error::BadRslot        => ffi::MDB_BAD_RSLOT,
+            Error::BadTxn          => ffi::MDB_BAD_TXN,
+            Error::BadValSize      => ffi::MDB_BAD_VALSIZE,
+            Error::BadDbi          => ffi::MDB_BAD_DBI,
+            Error::Other(err_code) => err_code,
         }
     }
 }
 
-impl fmt::Display for LmdbError {
+impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "{}", self.description())
     }
 }
 
-impl Error for LmdbError {
+impl StdError for Error {
     fn description(&self) -> &str {
         unsafe {
             // This is safe since the error messages returned from mdb_strerror are static.
@@ -121,29 +121,29 @@ impl Error for LmdbError {
     }
 }
 
-pub type LmdbResult<T> = Result<T, LmdbError>;
+pub type Result<T> = result::Result<T, Error>;
 
-pub fn lmdb_result(err_code: c_int) -> LmdbResult<()> {
+pub fn lmdb_result(err_code: c_int) -> Result<()> {
     if err_code == ffi::MDB_SUCCESS {
         Ok(())
     } else {
-        Err(LmdbError::from_err_code(err_code))
+        Err(Error::from_err_code(err_code))
     }
 }
 
 #[cfg(test)]
 mod test {
 
-    use std::error::Error;
+    use std::error::Error as StdError;
 
     use super::*;
 
     #[test]
     fn test_description() {
         assert_eq!("Permission denied",
-                   LmdbError::from_err_code(13).description());
+                   Error::from_err_code(13).description());
         assert_eq!("MDB_NOTFOUND: No matching key/data pair found",
-                   LmdbError::NotFound.description());
+                   Error::NotFound.description());
     }
 
 }

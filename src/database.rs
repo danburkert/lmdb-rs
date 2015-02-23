@@ -4,7 +4,7 @@ use std::ptr;
 
 use ffi;
 
-use error::{LmdbResult, lmdb_result};
+use error::{Result, lmdb_result};
 
 /// A handle to an individual database in an environment.
 ///
@@ -24,7 +24,7 @@ impl Database {
     pub unsafe fn new(txn: *mut ffi::MDB_txn,
                       name: Option<&str>,
                       flags: c_uint)
-                      -> LmdbResult<Database> {
+                      -> Result<Database> {
         let c_name = name.map(|n| CString::new(n).unwrap());
         let name_ptr = if let Some(ref c_name) = c_name { c_name.as_ptr() } else { ptr::null() };
         let mut dbi: ffi::MDB_dbi = 0;

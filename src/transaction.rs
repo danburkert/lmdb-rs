@@ -8,7 +8,7 @@ use ffi;
 use cursor::{RoCursor, RwCursor};
 use environment::Environment;
 use database::Database;
-use error::{LmdbError, LmdbResult, lmdb_result};
+use error::{Error, Result, lmdb_result};
 use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 
 /// An LMDB transaction.
@@ -29,7 +29,7 @@ pub trait TransactionExt<'env> : Transaction<'env> + Sized {
     /// Commits the transaction.
     ///
     /// Any pending operations will be saved.
-    fn commit(self) -> LmdbResult<()> {
+    fn commit(self) -> Result<()> {
         unsafe {
             let result = lmdb_result(ffi::mdb_txn_commit(self.txn()));
             mem::forget(self);
@@ -59,7 +59,7 @@ pub trait TransactionExt<'env> : Transaction<'env> + Sized {
     /// `Database::create`) **must not** be called from multiple concurrent transactions in the same
     /// environment. A transaction which uses this function must finish (either commit or abort)
     /// before any other transaction may use this function.
-    unsafe fn open_db(&self, name: Option<&str>) -> LmdbResult<Database> {
+    unsafe fn open_db(&self, name: Option<&str>) -> Result<Database> {
         Database::new(self.txn(), name, 0)
     }
 
@@ -68,9 +68,9 @@ pub trait TransactionExt<'env> : Transaction<'env> + Sized {
     /// This function retrieves the data associated with the given key in the database. If the
     /// database supports duplicate keys (`DatabaseFlags::DUP_SORT`) then the first data item for
     /// the key will be returned. Retrieval of other items requires the use of
-    /// `Transaction::cursor_get`. If the item is not in the database, then `LmdbError::NotFound`
+    /// `Transaction::cursor_get`. If the item is not in the database, then `Error::NotFound`
     /// will be returned.
-    fn get<'txn>(&'txn self, database: Database, key: &[u8]) -> LmdbResult<&'txn [u8]> {
+    fn get<'txn>(&'txn self, database: Database, key: &[u8]) -> Result<&'txn [u8]> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: 0,
@@ -83,18 +83,18 @@ pub trait TransactionExt<'env> : Transaction<'env> + Sized {
                         len: data_val.mv_size as usize
                     }))
                 },
-                err_code => Err(LmdbError::from_err_code(err_code)),
+                err_code => Err(Error::from_err_code(err_code)),
             }
         }
     }
 
     /// Open a new read-only cursor on the given database.
-    fn open_ro_cursor<'txn>(&'txn self, db: Database) -> LmdbResult<RoCursor<'txn>> {
+    fn open_ro_cursor<'txn>(&'txn self, db: Database) -> Result<RoCursor<'txn>> {
         RoCursor::new(self, db)
     }
 
     /// Gets the option flags for the given database in the transaction.
-    fn db_flags(&self, db: Database) -> LmdbResult<DatabaseFlags> {
+    fn db_flags(&self, db: Database) -> Result<DatabaseFlags> {
         let mut flags: c_uint = 0;
         unsafe {
             try!(lmdb_result(ffi::mdb_dbi_flags(self.txn(), db.dbi(), &mut flags)));
@@ -126,7 +126,7 @@ impl <'env> RoTransaction<'env> {
     /// Creates a new read-only transaction in the given environment. Prefer using
     /// `Environment::begin_ro_txn`.
     #[doc(hidden)]
-    pub fn new(env: &'env Environment) -> LmdbResult<RoTransaction<'env>> {
+    pub fn new(env: &'env Environment) -> Result<RoTransaction<'env>> {
         let mut txn: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
             try!(lmdb_result(ffi::mdb_txn_begin(env.env(),
@@ -182,7 +182,7 @@ impl <'env> InactiveTransaction<'env> {
     ///
     /// This acquires a new reader lock for a transaction handle that had been released by
     /// `RoTransaction::reset`.
-    pub fn renew(self) -> LmdbResult<RoTransaction<'env>> {
+    pub fn renew(self) -> Result<RoTransaction<'env>> {
         let txn = self.txn;
         unsafe {
             mem::forget(self);
@@ -213,7 +213,7 @@ impl <'env> RwTransaction<'env> {
     /// Creates a new read-write transaction in the given environment. Prefer using
     /// `Environment::begin_ro_txn`.
     #[doc(hidden)]
-    pub fn new(env: &'env Environment) -> LmdbResult<RwTransaction<'env>> {
+    pub fn new(env: &'env Environment) -> Result<RwTransaction<'env>> {
         let mut txn: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
             try!(lmdb_result(ffi::mdb_txn_begin(env.env(),
@@ -239,16 +239,13 @@ impl <'env> RwTransaction<'env> {
     /// `Database::open`) **must not** be called from multiple concurrent transactions in the same
     /// environment. A transaction which uses this function must finish (either commit or abort)
     /// before any other transaction may use this function.
-    pub unsafe fn create_db(&self,
-                            name: Option<&str>,
-                            flags: DatabaseFlags)
-                            -> LmdbResult<Database> {
+    pub unsafe fn create_db(&self, name: Option<&str>, flags: DatabaseFlags) -> Result<Database> {
         Database::new(self.txn(), name, flags.bits() | ffi::MDB_CREATE)
     }
 
 
     /// Opens a new read-write cursor on the given database and transaction.
-    pub fn open_rw_cursor<'txn>(&'txn mut self, db: Database) -> LmdbResult<RwCursor<'txn>> {
+    pub fn open_rw_cursor<'txn>(&'txn mut self, db: Database) -> Result<RwCursor<'txn>> {
         RwCursor::new(self, db)
     }
 
@@ -262,7 +259,7 @@ impl <'env> RwTransaction<'env> {
            key: &[u8],
            data: &[u8],
            flags: WriteFlags)
-           -> LmdbResult<()> {
+           -> Result<()> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
@@ -283,7 +280,7 @@ impl <'env> RwTransaction<'env> {
                      key: &[u8],
                      len: size_t,
                      flags: WriteFlags)
-                     -> LmdbResult<BufWriter<'txn>> {
+                     -> Result<BufWriter<'txn>> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: len,
@@ -310,12 +307,12 @@ impl <'env> RwTransaction<'env> {
     /// If the database supports sorted duplicates and the data parameter is `None`, all of the
     /// duplicate data items for the key will be deleted. Otherwise, if the data parameter is
     /// `Some` only the matching data item will be deleted. This function will return
-    /// `LmdbError::NotFound` if the specified key/data pair is not in the database.
+    /// `Error::NotFound` if the specified key/data pair is not in the database.
     pub fn del(&mut self,
            database: Database,
            key: &[u8],
            data: Option<&[u8]>)
-           -> LmdbResult<()> {
+           -> Result<()> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let data_val: Option<ffi::MDB_val> =
@@ -331,7 +328,7 @@ impl <'env> RwTransaction<'env> {
     }
 
     /// Empties the given database. All items will be removed.
-    pub fn clear_db(&mut self, db: Database) -> LmdbResult<()> {
+    pub fn clear_db(&mut self, db: Database) -> Result<()> {
         unsafe { lmdb_result(ffi::mdb_drop(self.txn(), db.dbi(), 0)) }
     }
 
@@ -341,12 +338,12 @@ impl <'env> RwTransaction<'env> {
     ///
     /// This method is unsafe in the same ways as `Environment::close_db`, and should be used
     /// accordingly.
-    pub unsafe fn drop_db(&mut self, db: Database) -> LmdbResult<()> {
+    pub unsafe fn drop_db(&mut self, db: Database) -> Result<()> {
         lmdb_result(ffi::mdb_drop(self.txn, db.dbi(), 1))
     }
 
     /// Begins a new nested transaction inside of this transaction.
-    pub fn begin_nested_txn<'txn>(&'txn mut self) -> LmdbResult<RwTransaction<'txn>> {
+    pub fn begin_nested_txn<'txn>(&'txn mut self) -> Result<RwTransaction<'txn>> {
         let mut nested: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
             let env: *mut ffi::MDB_env = ffi::mdb_txn_env(self.txn());
@@ -396,10 +393,10 @@ mod test {
         assert_eq!(b"val1", txn.get(db, b"key1").unwrap());
         assert_eq!(b"val2", txn.get(db, b"key2").unwrap());
         assert_eq!(b"val3", txn.get(db, b"key3").unwrap());
-        assert_eq!(txn.get(db, b"key"), Err(LmdbError::NotFound));
+        assert_eq!(txn.get(db, b"key"), Err(Error::NotFound));
 
         txn.del(db, b"key1", None).unwrap();
-        assert_eq!(txn.get(db, b"key1"), Err(LmdbError::NotFound));
+        assert_eq!(txn.get(db, b"key1"), Err(Error::NotFound));
     }
 
     #[test]
@@ -417,10 +414,10 @@ mod test {
 
         let mut txn = env.begin_rw_txn().unwrap();
         assert_eq!(b"val1", txn.get(db, b"key1").unwrap());
-        assert_eq!(txn.get(db, b"key"), Err(LmdbError::NotFound));
+        assert_eq!(txn.get(db, b"key"), Err(Error::NotFound));
 
         txn.del(db, b"key1", None).unwrap();
-        assert_eq!(txn.get(db, b"key1"), Err(LmdbError::NotFound));
+        assert_eq!(txn.get(db, b"key1"), Err(Error::NotFound));
     }
 
     #[test]
@@ -458,7 +455,7 @@ mod test {
         }
 
         assert_eq!(txn.get(db, b"key1").unwrap(), b"val1");
-        assert_eq!(txn.get(db, b"key2"), Err(LmdbError::NotFound));
+        assert_eq!(txn.get(db, b"key2"), Err(Error::NotFound));
     }
 
     #[test]
@@ -480,7 +477,7 @@ mod test {
         }
 
         let txn = env.begin_ro_txn().unwrap();
-        assert_eq!(txn.get(db, b"key"), Err(LmdbError::NotFound));
+        assert_eq!(txn.get(db, b"key"), Err(Error::NotFound));
     }
 
 
@@ -502,7 +499,7 @@ mod test {
             txn.commit().unwrap();
         }
 
-        assert_eq!(env.open_db(Some("test")), Err(LmdbError::NotFound));
+        assert_eq!(env.open_db(Some("test")), Err(Error::NotFound));
     }
 
     #[test]
@@ -525,7 +522,7 @@ mod test {
                 let db = reader_env.open_db(None).unwrap();
                 {
                     let txn = reader_env.begin_ro_txn().unwrap();
-                    assert_eq!(txn.get(db, key), Err(LmdbError::NotFound));
+                    assert_eq!(txn.get(db, key), Err(Error::NotFound));
                     txn.abort();
                 }
                 reader_barrier.wait();

@@ -3,7 +3,6 @@ env:
   global:
     - secure: LhiHXBKaxsubX45eMukb39IDKaM0mdMzE8Ow4DCnq/yFTZn22ju/H3nMawk0X74gCMXsrADErcBke/7+mHV5GgToqtKjr8RaZDwAmZtzDgdrvJlqy+w59WbvJKuPXYGN0dPiVSkt/fFGf7qGFjLj0DiGZHw05XmBSq+90Qn3Iqw=
 script:
-  - export LD_PRELOAD=/usr/lib/llvm-${LLVM_VERSION}/lib/libclang.so
   - cargo build -v
   - cargo test -v
   - cargo doc

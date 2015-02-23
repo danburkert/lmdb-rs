@@ -3,7 +3,7 @@ use std::{mem, ptr, raw};
 use std::marker::{PhantomData, PhantomFn};
 
 use database::Database;
-use error::{LmdbResult, lmdb_result, LmdbError};
+use error::{Error, Result, lmdb_result};
 use ffi;
 use flags::WriteFlags;
 use transaction::Transaction;
@@ -25,7 +25,7 @@ pub trait CursorExt<'txn> : Cursor<'txn> + Sized {
            key: Option<&[u8]>,
            data: Option<&[u8]>,
            op: c_uint)
-           -> LmdbResult<(Option<&'txn [u8]>, &'txn [u8])> {
+           -> Result<(Option<&'txn [u8]>, &'txn [u8])> {
         unsafe {
             let mut key_val = slice_to_val(key);
             let mut data_val = slice_to_val(data);
@@ -90,7 +90,7 @@ pub trait CursorExt<'txn> : Cursor<'txn> + Sized {
     }
 
     /// Iterate over the duplicates of the item in the database with the given key.
-    fn iter_dup_of(&mut self, key: &[u8]) -> LmdbResult<Iter<'txn>> {
+    fn iter_dup_of(&mut self, key: &[u8]) -> Result<Iter<'txn>> {
         try!(self.get(Some(key), None, ffi::MDB_SET));
         Ok(Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT_DUP))
     }
@@ -125,7 +125,7 @@ impl <'txn> RoCursor<'txn> {
     /// Creates a new read-only cursor in the given database and transaction. Prefer using
     /// `Transaction::open_cursor`.
     #[doc(hidden)]
-    pub fn new(txn: &'txn Transaction, db: Database) -> LmdbResult<RoCursor<'txn>> {
+    pub fn new(txn: &'txn Transaction, db: Database) -> Result<RoCursor<'txn>> {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
         unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
         Ok(RoCursor {
@@ -162,7 +162,7 @@ impl <'txn> RwCursor<'txn> {
     /// Creates a new read-only cursor in the given database and transaction. Prefer using
     /// `RwTransaction::open_rw_cursor`.
     #[doc(hidden)]
-    pub fn new(txn: &'txn Transaction, db: Database) -> LmdbResult<RwCursor<'txn>> {
+    pub fn new(txn: &'txn Transaction, db: Database) -> Result<RwCursor<'txn>> {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
         unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
         Ok(RwCursor { cursor: cursor, _marker: PhantomData })
@@ -170,11 +170,7 @@ impl <'txn> RwCursor<'txn> {
 
     /// Puts a key/data pair into the database. The cursor will be positioned at the new data item,
     /// or on failure usually near it.
-    pub fn put(&mut self,
-               key: &[u8],
-               data: &[u8],
-               flags: WriteFlags)
-               -> LmdbResult<()> {
+    pub fn put(&mut self, key: &[u8], data: &[u8], flags: WriteFlags) -> Result<()> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
@@ -193,7 +189,7 @@ impl <'txn> RwCursor<'txn> {
     ///
     /// `WriteFlags::NO_DUP_DATA` may be used to delete all data items for the current key, if the
     /// database was opened with `DatabaseFlags::DUP_SORT`.
-    pub fn del(&mut self, flags: WriteFlags) -> LmdbResult<()> {
+    pub fn del(&mut self, flags: WriteFlags) -> Result<()> {
         unsafe { lmdb_result(ffi::mdb_cursor_del(self.cursor(), flags.bits())) }
     }
 }
@@ -250,7 +246,7 @@ impl <'txn> Iterator for Iter<'txn> {
                 // and MDB_EINVAL (and we shouldn't be passing in invalid parameters).
                 // TODO: validate that these are the only failures possible.
                 debug_assert!(err_code == ffi::MDB_NOTFOUND,
-                              "Unexpected LMDB error {:?}.", LmdbError::from_err_code(err_code));
+                              "Unexpected LMDB error {:?}.", Error::from_err_code(err_code));
                 None
             }
         }

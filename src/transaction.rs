@@ -1,7 +1,6 @@
 use libc::{c_uint, c_void, size_t};
 use std::{mem, ptr, raw};
 use std::marker::{PhantomData, PhantomFn} ;
-use std::old_io::BufWriter;
 
 use ffi;
 
@@ -280,7 +279,7 @@ impl <'env> RwTransaction<'env> {
                      key: &[u8],
                      len: size_t,
                      flags: WriteFlags)
-                     -> Result<BufWriter<'txn>> {
+                     -> Result<&'txn mut [u8]> {
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: len,
@@ -291,12 +290,10 @@ impl <'env> RwTransaction<'env> {
                                           &mut key_val,
                                           &mut data_val,
                                           flags.bits() | ffi::MDB_RESERVE)));
-            let slice: &'txn mut [u8] =
-                mem::transmute(raw::Slice {
-                    data: data_val.mv_data as *const u8,
-                    len: data_val.mv_size as usize
-                });
-            Ok(BufWriter::new(slice))
+            Ok(mem::transmute(raw::Slice {
+                data: data_val.mv_data as *const u8,
+                len: data_val.mv_size as usize
+            }))
         }
     }
 
@@ -362,10 +359,10 @@ impl <'env> Transaction<'env> for RwTransaction<'env> {
 #[cfg(test)]
 mod test {
 
-    use std::old_io as io;
-    use std::{fs, ptr};
     use rand::{Rng, XorShiftRng};
+    use std::io::Write;
     use std::sync::{Arc, Barrier, Future};
+    use std::{fs, ptr};
     use test::{Bencher, black_box};
 
     use ffi::*;
@@ -379,7 +376,7 @@ mod test {
     #[test]
     fn test_put_get_del() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();
@@ -401,7 +398,7 @@ mod test {
     #[test]
     fn test_reserve() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();
@@ -422,7 +419,7 @@ mod test {
     #[test]
     fn test_inactive_txn() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
         {
@@ -440,7 +437,7 @@ mod test {
     #[test]
     fn test_nested_txn() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();
@@ -460,7 +457,7 @@ mod test {
     #[test]
     fn test_clear_db() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
         {
@@ -484,7 +481,7 @@ mod test {
     fn test_drop_db() {
         let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(2)
-                                        .open(dir.path(), io::USER_RWX).unwrap();
+                                        .open(dir.path()).unwrap();
         let db = env.create_db(Some("test"), DatabaseFlags::empty()).unwrap();
 
         {
@@ -504,7 +501,7 @@ mod test {
     #[test]
     fn test_concurrent_readers_single_writer() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env: Arc<Environment> = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
+        let env: Arc<Environment> = Arc::new(Environment::new().open(dir.path()).unwrap());
 
         let n = 10usize; // Number of concurrent readers
         let barrier = Arc::new(Barrier::new(n + 1));
@@ -546,7 +543,7 @@ mod test {
     #[test]
     fn test_concurrent_writers() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
+        let env = Arc::new(Environment::new().open(dir.path()).unwrap());
 
         let n = 10usize; // Number of concurrent writers
         let mut futures: Vec<Future<bool>> = Vec::with_capacity(n);

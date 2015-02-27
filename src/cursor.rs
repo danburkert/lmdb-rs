@@ -290,7 +290,6 @@ impl <'txn> Iterator for IterDup<'txn> {
 #[cfg(test)]
 mod test {
 
-    use std::old_io as io;
     use std::{fs, ptr};
     use test::{Bencher, black_box};
 
@@ -305,7 +304,7 @@ mod test {
     #[test]
     fn test_get() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();
@@ -335,7 +334,7 @@ mod test {
     #[test]
     fn test_get_dup() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.create_db(None, DUP_SORT).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();
@@ -381,7 +380,7 @@ mod test {
     #[test]
     fn test_get_dupfixed() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.create_db(None, DUP_SORT | DUP_FIXED).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();
@@ -403,7 +402,7 @@ mod test {
     #[test]
     fn test_iter() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
         let items = vec!((b"key1", b"val1"),
@@ -435,7 +434,7 @@ mod test {
     #[test]
     fn test_iter_dup() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.create_db(None, DUP_SORT).unwrap();
 
         let items = vec!((b"a", b"1"),
@@ -482,7 +481,7 @@ mod test {
     #[test]
     fn test_put_del() {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();

@@ -1,7 +1,6 @@
 use libc::{c_uint, size_t, mode_t};
 use std::ffi::{AsOsStr, CString};
 use std::os::unix::OsStrExt;
-use std::old_io::FilePermission;
 use std::path::Path;
 use std::ptr;
 use std::sync::Mutex;
@@ -165,8 +164,19 @@ impl EnvironmentBuilder {
 
     /// Open an environment.
     ///
+    /// On UNIX, the database files will be opened with 644 permissions.
+    ///
     /// The path may not contain the null character.
-    pub fn open(&self, path: &Path, mode: FilePermission) -> Result<Environment> {
+    pub fn open(&self, path: &Path) -> Result<Environment> {
+        self.open_with_permissions(path, 0o644)
+    }
+
+    /// Open an environment with the provided UNIX permissions.
+    ///
+    /// On Windows, the permissions will be ignored.
+    ///
+    /// The path may not contain the null character.
+    pub fn open_with_permissions(&self, path: &Path, mode: mode_t) -> Result<Environment> {
         let mut env: *mut ffi::MDB_env = ptr::null_mut();
         unsafe {
             lmdb_try!(ffi::mdb_env_create(&mut env));
@@ -185,11 +195,11 @@ impl EnvironmentBuilder {
             lmdb_try_with_cleanup!(ffi::mdb_env_open(env,
                                                      CString::new(path.as_os_str().as_bytes()).unwrap().as_ptr(),
                                                      self.flags.bits(),
-                                                     mode.bits() as mode_t),
+                                                     mode),
                                    ffi::mdb_env_close(env));
         }
-        Ok(Environment { env: env,
-                         dbi_open_mutex: Mutex::new(()) })
+        Ok(Environment { env: env, dbi_open_mutex: Mutex::new(()) })
+
     }
 
     pub fn set_flags(&mut self, flags: EnvironmentFlags) -> &mut EnvironmentBuilder {
@@ -242,7 +252,6 @@ impl EnvironmentBuilder {
 #[cfg(test)]
 mod test {
 
-    use std::old_io as io;
     use std::fs;
 
     use flags::*;
@@ -255,15 +264,15 @@ mod test {
 
         // opening non-existent env with read-only should fail
         assert!(Environment::new().set_flags(READ_ONLY)
-                                  .open(dir.path(), io::USER_RWX)
+                                  .open(dir.path())
                                   .is_err());
 
         // opening non-existent env should succeed
-        assert!(Environment::new().open(dir.path(), io::USER_RWX).is_ok());
+        assert!(Environment::new().open(dir.path()).is_ok());
 
         // opening env with read-only should succeed
         assert!(Environment::new().set_flags(READ_ONLY)
-                                  .open(dir.path(), io::USER_RWX)
+                                  .open(dir.path())
                                   .is_ok());
     }
 
@@ -272,7 +281,7 @@ mod test {
         let dir = fs::TempDir::new("test").unwrap();
 
         { // writable environment
-            let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+            let env = Environment::new().open(dir.path()).unwrap();
 
             assert!(env.begin_rw_txn().is_ok());
             assert!(env.begin_ro_txn().is_ok());
@@ -280,7 +289,7 @@ mod test {
 
         { // read-only environment
             let env = Environment::new().set_flags(READ_ONLY)
-                                        .open(dir.path(), io::USER_RWX)
+                                        .open(dir.path())
                                         .unwrap();
 
             assert!(env.begin_rw_txn().is_err());
@@ -292,7 +301,7 @@ mod test {
     fn test_open_db() {
         let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(1)
-                                    .open(dir.path(), io::USER_RWX)
+                                    .open(dir.path())
                                     .unwrap();
 
         assert!(env.open_db(None).is_ok());
@@ -303,7 +312,7 @@ mod test {
     fn test_create_db() {
         let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(11)
-                                    .open(dir.path(), io::USER_RWX)
+                                    .open(dir.path())
                                     .unwrap();
         assert!(env.open_db(Some("testdb")).is_err());
         assert!(env.create_db(Some("testdb"), DatabaseFlags::empty()).is_ok());
@@ -314,7 +323,7 @@ mod test {
     fn test_close_database() {
         let dir = fs::TempDir::new("test").unwrap();
         let mut env = Environment::new().set_max_dbs(10)
-                                        .open(dir.path(), io::USER_RWX)
+                                        .open(dir.path())
                                         .unwrap();
 
         let db = env.create_db(Some("db"), DatabaseFlags::empty()).unwrap();
@@ -326,11 +335,11 @@ mod test {
     fn test_sync() {
         let dir = fs::TempDir::new("test").unwrap();
         {
-            let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+            let env = Environment::new().open(dir.path()).unwrap();
             assert!(env.sync(true).is_ok());
         } {
             let env = Environment::new().set_flags(READ_ONLY)
-                                        .open(dir.path(), io::USER_RWX)
+                                        .open(dir.path())
                                         .unwrap();
             assert!(env.sync(true).is_err());
         }

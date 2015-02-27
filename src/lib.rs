@@ -1,8 +1,8 @@
 //! Idiomatic and safe APIs for interacting with the
 //! [Symas Lightning Memory-Mapped Database (LMDB)](http://symas.com/mdb/).
 
-#![feature(core, libc, old_io, optin_builtin_traits, path, std_misc, unsafe_destructor)]
-#![cfg_attr(test, feature(fs, tempdir, test))]
+#![feature(core, libc, optin_builtin_traits, path, std_misc, unsafe_destructor)]
+#![cfg_attr(test, feature(fs, io, tempdir, test))]
 
 extern crate libc;
 extern crate "lmdb-sys" as ffi;
@@ -60,8 +60,6 @@ mod transaction;
 #[cfg(test)]
 mod test_utils {
 
-    use std::old_io as io;
-
     use std::fs;
 
     use super::*;
@@ -76,7 +74,7 @@ mod test_utils {
 
     pub fn setup_bench_db<'a>(num_rows: u32) -> (fs::TempDir, Environment) {
         let dir = fs::TempDir::new("test").unwrap();
-        let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
 
         {
             let db = env.open_db(None).unwrap();

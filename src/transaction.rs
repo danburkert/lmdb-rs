@@ -363,7 +363,7 @@ impl <'env> Transaction<'env> for RwTransaction<'env> {
 mod test {
 
     use std::old_io as io;
-    use std::ptr;
+    use std::{fs, ptr};
     use rand::{Rng, XorShiftRng};
     use std::sync::{Arc, Barrier, Future};
     use test::{Bencher, black_box};
@@ -374,12 +374,11 @@ mod test {
     use error::*;
     use flags::*;
     use super::*;
-    use tempdir;
     use test_utils::*;
 
     #[test]
     fn test_put_get_del() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -401,7 +400,7 @@ mod test {
 
     #[test]
     fn test_reserve() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -422,7 +421,7 @@ mod test {
 
     #[test]
     fn test_inactive_txn() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -440,7 +439,7 @@ mod test {
 
     #[test]
     fn test_nested_txn() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -460,7 +459,7 @@ mod test {
 
     #[test]
     fn test_clear_db() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -483,7 +482,7 @@ mod test {
 
     #[test]
     fn test_drop_db() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(2)
                                         .open(dir.path(), io::USER_RWX).unwrap();
         let db = env.create_db(Some("test"), DatabaseFlags::empty()).unwrap();
@@ -504,7 +503,7 @@ mod test {
 
     #[test]
     fn test_concurrent_readers_single_writer() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env: Arc<Environment> = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
 
         let n = 10usize; // Number of concurrent readers
@@ -546,7 +545,7 @@ mod test {
 
     #[test]
     fn test_concurrent_writers() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Arc::new(Environment::new().open(dir.path(), io::USER_RWX).unwrap());
 
         let n = 10usize; // Number of concurrent writers

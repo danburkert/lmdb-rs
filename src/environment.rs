@@ -243,15 +243,15 @@ impl EnvironmentBuilder {
 mod test {
 
     use std::old_io as io;
+    use std::fs;
 
     use flags::*;
-    use tempdir;
 
     use super::*;
 
     #[test]
     fn test_open() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
 
         // opening non-existent env with read-only should fail
         assert!(Environment::new().set_flags(READ_ONLY)
@@ -269,7 +269,7 @@ mod test {
 
     #[test]
     fn test_begin_txn() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
 
         { // writable environment
             let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
@@ -290,7 +290,7 @@ mod test {
 
     #[test]
     fn test_open_db() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(1)
                                     .open(dir.path(), io::USER_RWX)
                                     .unwrap();
@@ -301,7 +301,7 @@ mod test {
 
     #[test]
     fn test_create_db() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(11)
                                     .open(dir.path(), io::USER_RWX)
                                     .unwrap();
@@ -312,7 +312,7 @@ mod test {
 
     #[test]
     fn test_close_database() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let mut env = Environment::new().set_max_dbs(10)
                                         .open(dir.path(), io::USER_RWX)
                                         .unwrap();
@@ -324,7 +324,7 @@ mod test {
 
     #[test]
     fn test_sync() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         {
             let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
             assert!(env.sync(true).is_ok());

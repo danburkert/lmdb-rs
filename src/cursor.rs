@@ -291,7 +291,7 @@ impl <'txn> Iterator for IterDup<'txn> {
 mod test {
 
     use std::old_io as io;
-    use std::ptr;
+    use std::{fs, ptr};
     use test::{Bencher, black_box};
 
     use ffi::*;
@@ -299,13 +299,12 @@ mod test {
     use environment::*;
     use flags::*;
     use super::*;
-    use tempdir;
     use test_utils::*;
     use transaction::*;
 
     #[test]
     fn test_get() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -335,7 +334,7 @@ mod test {
 
     #[test]
     fn test_get_dup() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.create_db(None, DUP_SORT).unwrap();
 
@@ -381,7 +380,7 @@ mod test {
 
     #[test]
     fn test_get_dupfixed() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.create_db(None, DUP_SORT | DUP_FIXED).unwrap();
 
@@ -403,7 +402,7 @@ mod test {
 
     #[test]
     fn test_iter() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -435,7 +434,7 @@ mod test {
 
     #[test]
     fn test_iter_dup() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.create_db(None, DUP_SORT).unwrap();
 
@@ -482,7 +481,7 @@ mod test {
 
     #[test]
     fn test_put_del() {
-        let dir = tempdir::TempDir::new("test").unwrap();
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
         let db = env.open_db(None).unwrap();
 

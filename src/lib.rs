@@ -2,13 +2,12 @@
 //! [Symas Lightning Memory-Mapped Database (LMDB)](http://symas.com/mdb/).
 
 #![feature(core, libc, old_io, optin_builtin_traits, path, std_misc, unsafe_destructor)]
-#![cfg_attr(test, feature(test))]
+#![cfg_attr(test, feature(fs, tempdir, test))]
 
 extern crate libc;
 extern crate "lmdb-sys" as ffi;
 
 #[cfg(test)] extern crate rand;
-#[cfg(test)] extern crate tempdir;
 #[cfg(test)] extern crate test;
 #[macro_use] extern crate bitflags;
 
@@ -63,7 +62,7 @@ mod test_utils {
 
     use std::old_io as io;
 
-    use tempdir;
+    use std::fs;
 
     use super::*;
 
@@ -75,8 +74,8 @@ mod test_utils {
         format!("data{}", n)
     }
 
-    pub fn setup_bench_db<'a>(num_rows: u32) -> (tempdir::TempDir, Environment) {
-        let dir = tempdir::TempDir::new("test").unwrap();
+    pub fn setup_bench_db<'a>(num_rows: u32) -> (fs::TempDir, Environment) {
+        let dir = fs::TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path(), io::USER_RWX).unwrap();
 
         {

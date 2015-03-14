@@ -1,8 +1,8 @@
 //! Idiomatic and safe APIs for interacting with the
 //! [Symas Lightning Memory-Mapped Database (LMDB)](http://symas.com/mdb/).
 
-#![feature(core, libc, optin_builtin_traits, path, std_misc, unsafe_destructor)]
-#![cfg_attr(test, feature(fs, io, tempdir, test))]
+#![feature(core, libc, optin_builtin_traits, std_misc, unsafe_destructor)]
+#![cfg_attr(test, feature(tempdir, test))]
 
 extern crate libc;
 extern crate "lmdb-sys" as ffi;

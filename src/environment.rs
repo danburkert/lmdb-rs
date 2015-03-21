@@ -1,6 +1,6 @@
 use libc::{c_uint, size_t, mode_t};
 use std::ffi::{AsOsStr, CString};
-use std::os::unix::OsStrExt;
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
 use std::sync::Mutex;
@@ -252,7 +252,7 @@ impl EnvironmentBuilder {
 #[cfg(test)]
 mod test {
 
-    use std::fs;
+    use tempdir::TempDir;
 
     use flags::*;
 
@@ -260,7 +260,7 @@ mod test {
 
     #[test]
     fn test_open() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
 
         // opening non-existent env with read-only should fail
         assert!(Environment::new().set_flags(READ_ONLY)
@@ -278,7 +278,7 @@ mod test {
 
     #[test]
     fn test_begin_txn() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
 
         { // writable environment
             let env = Environment::new().open(dir.path()).unwrap();
@@ -299,7 +299,7 @@ mod test {
 
     #[test]
     fn test_open_db() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(1)
                                     .open(dir.path())
                                     .unwrap();
@@ -310,7 +310,7 @@ mod test {
 
     #[test]
     fn test_create_db() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(11)
                                     .open(dir.path())
                                     .unwrap();
@@ -321,7 +321,7 @@ mod test {
 
     #[test]
     fn test_close_database() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let mut env = Environment::new().set_max_dbs(10)
                                         .open(dir.path())
                                         .unwrap();
@@ -333,7 +333,7 @@ mod test {
 
     #[test]
     fn test_sync() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         {
             let env = Environment::new().open(dir.path()).unwrap();
             assert!(env.sync(true).is_ok());

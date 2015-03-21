@@ -290,12 +290,13 @@ impl <'txn> Iterator for IterDup<'txn> {
 #[cfg(test)]
 mod test {
 
-    use std::{fs, ptr};
+    use std::ptr;
     use test::{Bencher, black_box};
 
-    use ffi::*;
+    use tempdir::TempDir;
 
     use environment::*;
+    use ffi::*;
     use flags::*;
     use super::*;
     use test_utils::*;
@@ -303,7 +304,7 @@ mod test {
 
     #[test]
     fn test_get() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -313,27 +314,27 @@ mod test {
         txn.put(db, b"key3", b"val3", WriteFlags::empty()).unwrap();
 
         let cursor = txn.open_ro_cursor(db).unwrap();
-        assert_eq!((Some(b"key1"), b"val1"),
+        assert_eq!((Some(&b"key1"[..]), &b"val1"[..]),
                    cursor.get(None, None, MDB_FIRST).unwrap());
-        assert_eq!((Some(b"key1"), b"val1"),
+        assert_eq!((Some(&b"key1"[..]), &b"val1"[..]),
                    cursor.get(None, None, MDB_GET_CURRENT).unwrap());
-        assert_eq!((Some(b"key2"), b"val2"),
+        assert_eq!((Some(&b"key2"[..]), &b"val2"[..]),
                    cursor.get(None, None, MDB_NEXT).unwrap());
-        assert_eq!((Some(b"key1"), b"val1"),
+        assert_eq!((Some(&b"key1"[..]), &b"val1"[..]),
                    cursor.get(None, None, MDB_PREV).unwrap());
-        assert_eq!((Some(b"key3"), b"val3"),
+        assert_eq!((Some(&b"key3"[..]), &b"val3"[..]),
                    cursor.get(None, None, MDB_LAST).unwrap());
-        assert_eq!((None, b"val2"),
+        assert_eq!((None, &b"val2"[..]),
                    cursor.get(Some(b"key2"), None, MDB_SET).unwrap());
-        assert_eq!((Some(b"key3"), b"val3"),
-                   cursor.get(Some(b"key3"), None, MDB_SET_KEY).unwrap());
-        assert_eq!((Some(b"key3"), b"val3"),
-                   cursor.get(Some(b"key2\0"), None, MDB_SET_RANGE).unwrap());
+        assert_eq!((Some(&b"key3"[..]), &b"val3"[..]),
+                   cursor.get(Some(&b"key3"[..]), None, MDB_SET_KEY).unwrap());
+        assert_eq!((Some(&b"key3"[..]), &b"val3"[..]),
+                   cursor.get(Some(&b"key2\0"[..]), None, MDB_SET_RANGE).unwrap());
     }
 
     #[test]
     fn test_get_dup() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.create_db(None, DUP_SORT).unwrap();
 
@@ -346,40 +347,40 @@ mod test {
         txn.put(db, b"key2", b"val3", WriteFlags::empty()).unwrap();
 
         let cursor = txn.open_ro_cursor(db).unwrap();
-        assert_eq!((Some(b"key1"), b"val1"),
+        assert_eq!((Some(&b"key1"[..]), &b"val1"[..]),
                    cursor.get(None, None, MDB_FIRST).unwrap());
-        assert_eq!((None, b"val1"),
+        assert_eq!((None, &b"val1"[..]),
                    cursor.get(None, None, MDB_FIRST_DUP).unwrap());
-        assert_eq!((Some(b"key1"), b"val1"),
+        assert_eq!((Some(&b"key1"[..]), &b"val1"[..]),
                    cursor.get(None, None, MDB_GET_CURRENT).unwrap());
-        assert_eq!((Some(b"key2"), b"val1"),
+        assert_eq!((Some(&b"key2"[..]), &b"val1"[..]),
                    cursor.get(None, None, MDB_NEXT_NODUP).unwrap());
-        assert_eq!((Some(b"key2"), b"val2"),
+        assert_eq!((Some(&b"key2"[..]), &b"val2"[..]),
                    cursor.get(None, None, MDB_NEXT_DUP).unwrap());
-        assert_eq!((Some(b"key2"), b"val3"),
+        assert_eq!((Some(&b"key2"[..]), &b"val3"[..]),
                    cursor.get(None, None, MDB_NEXT_DUP).unwrap());
         assert!(cursor.get(None, None, MDB_NEXT_DUP).is_err());
-        assert_eq!((Some(b"key2"), b"val2"),
+        assert_eq!((Some(&b"key2"[..]), &b"val2"[..]),
                    cursor.get(None, None, MDB_PREV_DUP).unwrap());
-        assert_eq!((None, b"val3"),
+        assert_eq!((None, &b"val3"[..]),
                    cursor.get(None, None, MDB_LAST_DUP).unwrap());
-        assert_eq!((Some(b"key1"), b"val3"),
+        assert_eq!((Some(&b"key1"[..]), &b"val3"[..]),
                    cursor.get(None, None, MDB_PREV_NODUP).unwrap());
-        assert_eq!((None, b"val1"),
-                   cursor.get(Some(b"key1"), None, MDB_SET).unwrap());
-        assert_eq!((Some(b"key2"), b"val1"),
-                   cursor.get(Some(b"key2"), None, MDB_SET_KEY).unwrap());
-        assert_eq!((Some(b"key2"), b"val1"),
-                   cursor.get(Some(b"key1\0"), None, MDB_SET_RANGE).unwrap());
-        assert_eq!((None, b"val3"),
-                   cursor.get(Some(b"key1"), Some(b"val3"), MDB_GET_BOTH).unwrap());
-        assert_eq!((None, b"val1"),
-                   cursor.get(Some(b"key2"), Some(b"val"), MDB_GET_BOTH_RANGE).unwrap());
+        assert_eq!((None, &b"val1"[..]),
+                   cursor.get(Some(&b"key1"[..]), None, MDB_SET).unwrap());
+        assert_eq!((Some(&b"key2"[..]), &b"val1"[..]),
+                   cursor.get(Some(&b"key2"[..]), None, MDB_SET_KEY).unwrap());
+        assert_eq!((Some(&b"key2"[..]), &b"val1"[..]),
+                   cursor.get(Some(&b"key1\0"[..]), None, MDB_SET_RANGE).unwrap());
+        assert_eq!((None, &b"val3"[..]),
+                   cursor.get(Some(&b"key1"[..]), Some(&b"val3"[..]), MDB_GET_BOTH).unwrap());
+        assert_eq!((None, &b"val1"[..]),
+                   cursor.get(Some(&b"key2"[..]), Some(&b"val"[..]), MDB_GET_BOTH_RANGE).unwrap());
     }
 
     #[test]
     fn test_get_dupfixed() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.create_db(None, DUP_SORT | DUP_FIXED).unwrap();
 
@@ -392,22 +393,22 @@ mod test {
         txn.put(db, b"key2", b"val6", WriteFlags::empty()).unwrap();
 
         let cursor = txn.open_ro_cursor(db).unwrap();
-        assert_eq!((Some(b"key1"), b"val1"),
+        assert_eq!((Some(&b"key1"[..]), &b"val1"[..]),
                    cursor.get(None, None, MDB_FIRST).unwrap());
-        assert_eq!((None, b"val1val2val3"),
+        assert_eq!((None, &b"val1val2val3"[..]),
                    cursor.get(None, None, MDB_GET_MULTIPLE).unwrap());
         assert!(cursor.get(None, None, MDB_NEXT_MULTIPLE).is_err());
     }
 
     #[test]
     fn test_iter() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
-        let items = vec!((b"key1", b"val1"),
-                         (b"key2", b"val2"),
-                         (b"key3", b"val3"));
+        let items: Vec<(&[u8], &[u8])> = vec!((b"key1", b"val1"),
+                                              (b"key2", b"val2"),
+                                              (b"key3", b"val3"));
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
@@ -433,19 +434,19 @@ mod test {
 
     #[test]
     fn test_iter_dup() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.create_db(None, DUP_SORT).unwrap();
 
-        let items = vec!((b"a", b"1"),
-                         (b"a", b"2"),
-                         (b"a", b"3"),
-                         (b"b", b"1"),
-                         (b"b", b"2"),
-                         (b"b", b"3"),
-                         (b"c", b"1"),
-                         (b"c", b"2"),
-                         (b"c", b"3"));
+        let items: Vec<(&[u8], &[u8])> = vec!((b"a", b"1"),
+                                              (b"a", b"2"),
+                                              (b"a", b"3"),
+                                              (b"b", b"1"),
+                                              (b"b", b"2"),
+                                              (b"b", b"3"),
+                                              (b"c", b"1"),
+                                              (b"c", b"2"),
+                                              (b"c", b"3"));
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
@@ -480,7 +481,7 @@ mod test {
 
     #[test]
     fn test_put_del() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -491,11 +492,11 @@ mod test {
         cursor.put(b"key2", b"val2", WriteFlags::empty()).unwrap();
         cursor.put(b"key3", b"val3", WriteFlags::empty()).unwrap();
 
-        assert_eq!((Some(b"key3"), b"val3"),
+        assert_eq!((Some(&b"key3"[..]), &b"val3"[..]),
                    cursor.get(None, None, MDB_GET_CURRENT).unwrap());
 
         cursor.del(WriteFlags::empty()).unwrap();
-        assert_eq!((Some(b"key2"), b"val2"),
+        assert_eq!((Some(&b"key2"[..]), &b"val2"[..]),
                    cursor.get(None, None, MDB_LAST).unwrap());
     }
 

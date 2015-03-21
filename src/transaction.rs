@@ -359,23 +359,24 @@ impl <'env> Transaction<'env> for RwTransaction<'env> {
 #[cfg(test)]
 mod test {
 
+    use std::ptr;
     use rand::{Rng, XorShiftRng};
     use std::io::Write;
     use std::sync::{Arc, Barrier, Future};
-    use std::{fs, ptr};
     use test::{Bencher, black_box};
 
-    use ffi::*;
+    use tempdir::TempDir;
 
     use environment::*;
     use error::*;
+    use ffi::*;
     use flags::*;
     use super::*;
     use test_utils::*;
 
     #[test]
     fn test_put_get_del() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -397,7 +398,7 @@ mod test {
 
     #[test]
     fn test_reserve() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -418,7 +419,7 @@ mod test {
 
     #[test]
     fn test_inactive_txn() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -436,7 +437,7 @@ mod test {
 
     #[test]
     fn test_nested_txn() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -456,7 +457,7 @@ mod test {
 
     #[test]
     fn test_clear_db() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
@@ -479,7 +480,7 @@ mod test {
 
     #[test]
     fn test_drop_db() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Environment::new().set_max_dbs(2)
                                         .open(dir.path()).unwrap();
         let db = env.create_db(Some("test"), DatabaseFlags::empty()).unwrap();
@@ -500,7 +501,7 @@ mod test {
 
     #[test]
     fn test_concurrent_readers_single_writer() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env: Arc<Environment> = Arc::new(Environment::new().open(dir.path()).unwrap());
 
         let n = 10usize; // Number of concurrent readers
@@ -510,7 +511,7 @@ mod test {
         let key = b"key";
         let val = b"val";
 
-        for _ in range(0, n) {
+        for _ in 0..n {
             let reader_env = env.clone();
             let reader_barrier = barrier.clone();
 
@@ -542,7 +543,7 @@ mod test {
 
     #[test]
     fn test_concurrent_writers() {
-        let dir = fs::TempDir::new("test").unwrap();
+        let dir = TempDir::new("test").unwrap();
         let env = Arc::new(Environment::new().open(dir.path()).unwrap());
 
         let n = 10usize; // Number of concurrent writers
@@ -551,7 +552,7 @@ mod test {
         let key = "key";
         let val = "val";
 
-        for i in range(0, n) {
+        for i in 0..n {
             let writer_env = env.clone();
 
             futures.push(Future::spawn(move|| {
@@ -570,7 +571,7 @@ mod test {
         let db = env.open_db(None).unwrap();
         let txn = env.begin_ro_txn().unwrap();
 
-        for i in range(0, n) {
+        for i in 0..n {
             assert_eq!(
                 format!("{}{}", val, i).as_bytes(),
                 txn.get(db, format!("{}{}", key, i).as_bytes()).unwrap());
@@ -584,8 +585,7 @@ mod test {
         let db = env.open_db(None).unwrap();
         let txn = env.begin_ro_txn().unwrap();
 
-        let mut keys: Vec<String> = range(0, n).map(|n| get_key(n))
-                                               .collect::<Vec<_>>();
+        let mut keys: Vec<String> = (0..n).map(|n| get_key(n)).collect();
         XorShiftRng::new_unseeded().shuffle(keys.as_mut_slice());
 
         b.iter(|| {
@@ -604,8 +604,7 @@ mod test {
         let db = env.open_db(None).unwrap();
         let _txn = env.begin_ro_txn().unwrap();
 
-        let mut keys: Vec<String> = range(0, n).map(|n| get_key(n))
-                                               .collect::<Vec<_>>();
+        let mut keys: Vec<String> = (0..n).map(|n| get_key(n)).collect();
         XorShiftRng::new_unseeded().shuffle(keys.as_mut_slice());
 
         let dbi = db.dbi();
@@ -634,8 +633,7 @@ mod test {
         let (_dir, env) = setup_bench_db(0);
         let db = env.open_db(None).unwrap();
 
-        let mut items: Vec<(String, String)> = range(0, n).map(|n| (get_key(n), get_data(n)))
-                                                          .collect::<Vec<_>>();
+        let mut items: Vec<(String, String)> = (0..n).map(|n| (get_key(n), get_data(n))).collect();
         XorShiftRng::new_unseeded().shuffle(items.as_mut_slice());
 
         b.iter(|| {
@@ -653,8 +651,7 @@ mod test {
         let (_dir, _env) = setup_bench_db(0);
         let db = _env.open_db(None).unwrap();
 
-        let mut items: Vec<(String, String)> = range(0, n).map(|n| (get_key(n), get_data(n)))
-                                                          .collect::<Vec<_>>();
+        let mut items: Vec<(String, String)> = (0..n).map(|n| (get_key(n), get_data(n))).collect();
         XorShiftRng::new_unseeded().shuffle(items.as_mut_slice());
 
         let dbi = db.dbi();

@@ -359,9 +359,10 @@ impl <'env> Transaction<'env> for RwTransaction<'env> {
 #[cfg(test)]
 mod test {
 
-    use std::ptr;
     use rand::{Rng, XorShiftRng};
     use std::io::Write;
+    use std::libc::size_t;
+    use std::ptr;
     use std::sync::{Arc, Barrier, Future};
     use test::{Bencher, black_box};
 
@@ -614,9 +615,9 @@ mod test {
         let mut data_val: MDB_val = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
 
         b.iter(|| unsafe {
-            let mut i: ::libc::size_t = 0;
+            let mut i: size_t = 0;
             for key in keys.iter() {
-                key_val.mv_size = key.len() as ::libc::size_t;
+                key_val.mv_size = key.len() as size_t;
                 key_val.mv_data = key.as_bytes().as_ptr() as *mut _;
 
                 mdb_get(txn, dbi, &mut key_val, &mut data_val);
@@ -667,9 +668,9 @@ mod test {
             let mut i: ::libc::c_int = 0;
             for &(ref key, ref data) in items.iter() {
 
-                key_val.mv_size = key.len() as ::libc::size_t;
+                key_val.mv_size = key.len() as size_t;
                 key_val.mv_data = key.as_bytes().as_ptr() as *mut _;
-                data_val.mv_size = data.len() as ::libc::size_t;
+                data_val.mv_size = data.len() as size_t;
                 data_val.mv_data = data.as_bytes().as_ptr() as *mut _;
 
                 i += mdb_put(txn, dbi, &mut key_val, &mut data_val, 0);

@@ -615,9 +615,9 @@ mod test {
         let mut data_val: MDB_val = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
 
         b.iter(|| unsafe {
-            let mut i = 0u64;
+            let mut i: ::libc::size_t = 0;
             for key in keys.iter() {
-                key_val.mv_size = key.len() as u64;
+                key_val.mv_size = key.len() as ::libc::size_t;
                 key_val.mv_data = key.as_bytes().as_ptr() as *mut _;
 
                 mdb_get(txn, dbi, &mut key_val, &mut data_val);
@@ -667,12 +667,12 @@ mod test {
             let mut txn: *mut MDB_txn = ptr::null_mut();
             mdb_txn_begin(env, ptr::null_mut(), 0, &mut txn);
 
-            let mut i = 0i32;
+            let mut i: ::libc::c_int = 0;
             for &(ref key, ref data) in items.iter() {
 
-                key_val.mv_size = key.len() as u64;
+                key_val.mv_size = key.len() as ::libc::size_t;
                 key_val.mv_data = key.as_bytes().as_ptr() as *mut _;
-                data_val.mv_size = data.len() as u64;
+                data_val.mv_size = data.len() as ::libc::size_t;
                 data_val.mv_data = data.as_bytes().as_ptr() as *mut _;
 
                 i += mdb_put(txn, dbi, &mut key_val, &mut data_val, 0);

@@ -359,9 +359,9 @@ impl <'env> Transaction<'env> for RwTransaction<'env> {
 #[cfg(test)]
 mod test {
 
+    use libc::size_t;
     use rand::{Rng, XorShiftRng};
     use std::io::Write;
-    use std::libc::size_t;
     use std::ptr;
     use std::sync::{Arc, Barrier, Future};
     use test::{Bencher, black_box};

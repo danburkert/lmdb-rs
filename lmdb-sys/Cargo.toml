@@ -9,13 +9,7 @@ repository = "https://github.com/danburkert/lmdb-rs.git"
 readme = "../README.md"
 documentation = "http://rust-ci.org/danburkert/lmdb-rs/doc/lmdb-sys/"
 
-
-links = "lmdb"
 build = "build.rs"
-
-[lib]
-
-name = "lmdb-sys"
 
 [build-dependencies]
 pkg-config = "*"

@@ -1,4 +1,4 @@
-extern crate "pkg-config" as pkg_config;
+extern crate pkg_config;
 extern crate gcc;
 
 use std::env;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 fn main() {
 
-    let mut lmdb: PathBuf = PathBuf::new(&env::var("CARGO_MANIFEST_DIR").unwrap());
+    let mut lmdb: PathBuf = PathBuf::from(&env::var("CARGO_MANIFEST_DIR").unwrap());
     lmdb.push("mdb");
     lmdb.push("libraries");
     lmdb.push("liblmdb");

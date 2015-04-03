@@ -1,5 +1,5 @@
 #![allow(non_camel_case_types)]
-#![feature(libc, plugin)]
+#![feature(libc)]
 
 extern crate libc;
 

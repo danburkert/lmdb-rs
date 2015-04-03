@@ -1,11 +1,11 @@
 //! Idiomatic and safe APIs for interacting with the
 //! [Symas Lightning Memory-Mapped Database (LMDB)](http://symas.com/mdb/).
 
-#![feature(core, libc, optin_builtin_traits, std_misc, unsafe_destructor)]
-#![cfg_attr(test, feature(test))]
+#![feature(core, libc, optin_builtin_traits, unsafe_destructor)]
+#![cfg_attr(test, feature(std_misc, test))]
 
 extern crate libc;
-extern crate "lmdb-sys" as ffi;
+extern crate lmdb_sys as ffi;
 
 #[cfg(test)] extern crate rand;
 #[cfg(test)] extern crate tempdir;
@@ -34,7 +34,7 @@ macro_rules! lmdb_try {
     ($expr:expr) => ({
         match $expr {
             ::ffi::MDB_SUCCESS => (),
-            err_code => return Err(::std::error::FromError::from_error(::Error::from_err_code(err_code))),
+            err_code => return Err(::Error::from_err_code(err_code)),
         }
     })
 }
@@ -45,7 +45,7 @@ macro_rules! lmdb_try_with_cleanup {
             ::ffi::MDB_SUCCESS => (),
             err_code => {
                 let _ = $cleanup;
-                return Err(::std::error::FromError::from_error(::Error::from_err_code(err_code)))
+                return Err(::Error::from_err_code(err_code))
             },
         }
     })

@@ -587,7 +587,7 @@ mod test {
         let txn = env.begin_ro_txn().unwrap();
 
         let mut keys: Vec<String> = (0..n).map(|n| get_key(n)).collect();
-        XorShiftRng::new_unseeded().shuffle(keys.as_mut_slice());
+        XorShiftRng::new_unseeded().shuffle(&mut keys[..]);
 
         b.iter(|| {
             let mut i = 0usize;
@@ -606,7 +606,7 @@ mod test {
         let _txn = env.begin_ro_txn().unwrap();
 
         let mut keys: Vec<String> = (0..n).map(|n| get_key(n)).collect();
-        XorShiftRng::new_unseeded().shuffle(keys.as_mut_slice());
+        XorShiftRng::new_unseeded().shuffle(&mut keys[..]);
 
         let dbi = db.dbi();
         let txn = _txn.txn();
@@ -635,7 +635,7 @@ mod test {
         let db = env.open_db(None).unwrap();
 
         let mut items: Vec<(String, String)> = (0..n).map(|n| (get_key(n), get_data(n))).collect();
-        XorShiftRng::new_unseeded().shuffle(items.as_mut_slice());
+        XorShiftRng::new_unseeded().shuffle(&mut items[..]);
 
         b.iter(|| {
             let mut txn = env.begin_rw_txn().unwrap();
@@ -653,7 +653,7 @@ mod test {
         let db = _env.open_db(None).unwrap();
 
         let mut items: Vec<(String, String)> = (0..n).map(|n| (get_key(n), get_data(n))).collect();
-        XorShiftRng::new_unseeded().shuffle(items.as_mut_slice());
+        XorShiftRng::new_unseeded().shuffle(&mut items[..]);
 
         let dbi = db.dbi();
         let env = _env.env();

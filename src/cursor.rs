@@ -1,5 +1,5 @@
 use libc::{c_void, size_t, c_uint};
-use std::{mem, ptr, raw};
+use std::{ptr, slice};
 use std::marker::{PhantomData, PhantomFn};
 
 use database::Database;
@@ -206,10 +206,7 @@ unsafe fn slice_to_val(slice: Option<&[u8]>) -> ffi::MDB_val {
 }
 
 unsafe fn val_to_slice<'a>(val: ffi::MDB_val) -> &'a [u8] {
-    mem::transmute(raw::Slice {
-        data: val.mv_data as *const u8,
-        len: val.mv_size as usize
-    })
+    slice::from_raw_parts(val.mv_data as *const u8, val.mv_size as usize)
 }
 
 pub struct Iter<'txn> {

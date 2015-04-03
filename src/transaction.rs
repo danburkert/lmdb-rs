@@ -1,5 +1,5 @@
 use libc::{c_uint, c_void, size_t};
-use std::{mem, ptr, raw};
+use std::{mem, ptr, slice};
 use std::marker::{PhantomData, PhantomFn} ;
 
 use ffi;
@@ -77,10 +77,8 @@ pub trait TransactionExt<'env> : Transaction<'env> + Sized {
         unsafe {
             match ffi::mdb_get(self.txn(), database.dbi(), &mut key_val, &mut data_val) {
                 ffi::MDB_SUCCESS => {
-                    Ok(mem::transmute(raw::Slice {
-                        data: data_val.mv_data as *const u8,
-                        len: data_val.mv_size as usize
-                    }))
+                    Ok(slice::from_raw_parts(data_val.mv_data as *const u8,
+                                             data_val.mv_size as usize))
                 },
                 err_code => Err(Error::from_err_code(err_code)),
             }
@@ -290,10 +288,8 @@ impl <'env> RwTransaction<'env> {
                                           &mut key_val,
                                           &mut data_val,
                                           flags.bits() | ffi::MDB_RESERVE)));
-            Ok(mem::transmute(raw::Slice {
-                data: data_val.mv_data as *const u8,
-                len: data_val.mv_size as usize
-            }))
+            Ok(slice::from_raw_parts_mut(data_val.mv_data as *mut u8,
+                                         data_val.mv_size as usize))
         }
     }
 

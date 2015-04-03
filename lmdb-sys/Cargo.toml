@@ -11,6 +11,9 @@ documentation = "http://rust-ci.org/danburkert/lmdb-rs/doc/lmdb-sys/"
 
 build = "build.rs"
 
+[dependencies]
+libc = "*"
+
 [build-dependencies]
 pkg-config = "*"
 gcc = "*"

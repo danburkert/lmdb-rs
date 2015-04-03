@@ -21,6 +21,7 @@ version = "0.4.3"
 
 [dependencies]
 bitflags = "*"
+libc = "*"
 
 [dev-dependencies]
 rand = "*"

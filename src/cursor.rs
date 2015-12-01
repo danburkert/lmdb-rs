@@ -13,11 +13,12 @@ pub trait Cursor<'txn> {
 
     /// Returns a raw pointer to the underlying LMDB cursor.
     ///
-    /// The caller **must** ensure that the pointer is not used after the lifetime of the cursor.
+    /// The caller **must** ensure that the pointer is not used after the
+    /// lifetime of the cursor.
     fn cursor(&self) -> *mut ffi::MDB_cursor;
 
-    /// Retrieves a key/data pair from the cursor. Depending on the cursor op, the current key may
-    /// be returned.
+    /// Retrieves a key/data pair from the cursor. Depending on the cursor op,
+    /// the current key may be returned.
     fn get(&self,
            key: Option<&[u8]>,
            data: Option<&[u8]>,
@@ -27,30 +28,29 @@ pub trait Cursor<'txn> {
             let mut key_val = slice_to_val(key);
             let mut data_val = slice_to_val(data);
             let key_ptr = key_val.mv_data;
-            try!(lmdb_result(ffi::mdb_cursor_get(self.cursor(),
-                                                 &mut key_val,
-                                                 &mut data_val,
-                                                 op)));
+            try!(lmdb_result(ffi::mdb_cursor_get(self.cursor(), &mut key_val, &mut data_val, op)));
             let key_out = if key_ptr != key_val.mv_data { Some(val_to_slice(key_val)) } else { None };
             let data_out = val_to_slice(data_val);
             Ok((key_out, data_out))
         }
     }
 
-    /// Iterate over database items. The iterator will begin with item next after the cursor, and
-    /// continue until the end of the database. For new cursors, the iterator will begin with the
-    /// first item in the database.
+    /// Iterate over database items. The iterator will begin with item next
+    /// after the cursor, and continue until the end of the database. For new
+    /// cursors, the iterator will begin with the first item in the database.
     ///
-    /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the duplicate data
-    /// items of each key will be returned before moving on to the next key.
+    /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the
+    /// duplicate data items of each key will be returned before moving on to
+    /// the next key.
     fn iter(&mut self) -> Iter<'txn> {
         Iter::new(self.cursor(), ffi::MDB_NEXT, ffi::MDB_NEXT)
     }
 
     /// Iterate over database items starting from the beginning of the database.
     ///
-    /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the duplicate data
-    /// items of each key will be returned before moving on to the next key.
+    /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the
+    /// duplicate data items of each key will be returned before moving on to
+    /// the next key.
     fn iter_start(&mut self) -> Iter<'txn> {
         self.get(None, None, ffi::MDB_FIRST).unwrap();
         Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT)
@@ -58,37 +58,40 @@ pub trait Cursor<'txn> {
 
     /// Iterate over database items starting from the given key.
     ///
-    /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the duplicate data
-    /// items of each key will be returned before moving on to the next key.
-    fn iter_from(&mut self, key: &[u8]) -> Iter<'txn> {
-        self.get(Some(key), None, ffi::MDB_SET_RANGE).unwrap();
+    /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the
+    /// duplicate data items of each key will be returned before moving on to
+    /// the next key.
+    fn iter_from<K>(&mut self, key: K) -> Iter<'txn> where K: AsRef<[u8]> {
+        self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE).unwrap();
         Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT)
     }
 
-    /// Iterate over duplicate database items. The iterator will begin with the item next after the
-    /// cursor, and continue until the end of the database. Each item will be returned as an
-    /// iterator of its duplicates.
+    /// Iterate over duplicate database items. The iterator will begin with the
+    /// item next after the cursor, and continue until the end of the database.
+    /// Each item will be returned as an iterator of its duplicates.
     fn iter_dup(&mut self) -> IterDup<'txn> {
         IterDup::new(self.cursor(), ffi::MDB_NEXT)
     }
 
-    /// Iterate over duplicate database items starting from the beginning of the database. Each item
-    /// will be returned as an iterator of its duplicates.
+    /// Iterate over duplicate database items starting from the beginning of the
+    /// database. Each item will be returned as an iterator of its duplicates.
     fn iter_dup_start(&mut self) -> IterDup<'txn> {
         self.get(None, None, ffi::MDB_FIRST).unwrap();
         IterDup::new(self.cursor(), ffi::MDB_GET_CURRENT)
     }
 
-    /// Iterate over duplicate items in the database starting from the given key. Each item will be
-    /// returned as an iterator of its duplicates.
-    fn iter_dup_from(&mut self, key: &[u8]) -> IterDup<'txn> {
-        self.get(Some(key), None, ffi::MDB_SET_RANGE).unwrap();
+    /// Iterate over duplicate items in the database starting from the given
+    /// key. Each item will be returned as an iterator of its duplicates.
+    fn iter_dup_from<K>(&mut self, key: &K) -> IterDup<'txn> where K: AsRef<[u8]> {
+        self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE).unwrap();
         IterDup::new(self.cursor(), ffi::MDB_GET_CURRENT)
     }
 
-    /// Iterate over the duplicates of the item in the database with the given key.
-    fn iter_dup_of(&mut self, key: &[u8]) -> Result<Iter<'txn>> {
-        try!(self.get(Some(key), None, ffi::MDB_SET));
+    /// Iterate over the duplicates of the item in the database with the given
+    /// key.
+    fn iter_dup_of<K>(&mut self, key: &K) -> Result<Iter<'txn>> where K:
+        AsRef<[u8]> {
+        try!(self.get(Some(key.as_ref()), None, ffi::MDB_SET));
         Ok(Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT_DUP))
     }
 }
@@ -113,8 +116,8 @@ impl <'txn> Drop for RoCursor<'txn> {
 
 impl <'txn> RoCursor<'txn> {
 
-    /// Creates a new read-only cursor in the given database and transaction. Prefer using
-    /// `Transaction::open_cursor`.
+    /// Creates a new read-only cursor in the given database and transaction.
+    /// Prefer using `Transaction::open_cursor`.
     #[doc(hidden)]
     pub fn new<T>(txn: &'txn T, db: Database) -> Result<RoCursor<'txn>> where T: Transaction {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
@@ -146,8 +149,8 @@ impl <'txn> Drop for RwCursor<'txn> {
 
 impl <'txn> RwCursor<'txn> {
 
-    /// Creates a new read-only cursor in the given database and transaction. Prefer using
-    /// `RwTransaction::open_rw_cursor`.
+    /// Creates a new read-only cursor in the given database and transaction.
+    /// Prefer using `RwTransaction::open_rw_cursor`.
     #[doc(hidden)]
     pub fn new<T>(txn: &'txn T, db: Database) -> Result<RwCursor<'txn>> where T: Transaction {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
@@ -155,9 +158,12 @@ impl <'txn> RwCursor<'txn> {
         Ok(RwCursor { cursor: cursor, _marker: PhantomData })
     }
 
-    /// Puts a key/data pair into the database. The cursor will be positioned at the new data item,
-    /// or on failure usually near it.
-    pub fn put(&mut self, key: &[u8], data: &[u8], flags: WriteFlags) -> Result<()> {
+    /// Puts a key/data pair into the database. The cursor will be positioned at
+    /// the new data item, or on failure usually near it.
+    pub fn put<K, D>(&mut self, key: &K, data: &D, flags: WriteFlags) -> Result<()>
+    where K: AsRef<[u8]>, D: AsRef<[u8]> {
+        let key = key.as_ref();
+        let data = data.as_ref();
         let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
                                                        mv_data: key.as_ptr() as *mut c_void };
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
@@ -174,8 +180,8 @@ impl <'txn> RwCursor<'txn> {
     ///
     /// ### Flags
     ///
-    /// `WriteFlags::NO_DUP_DATA` may be used to delete all data items for the current key, if the
-    /// database was opened with `DatabaseFlags::DUP_SORT`.
+    /// `WriteFlags::NO_DUP_DATA` may be used to delete all data items for the
+    /// current key, if the database was opened with `DatabaseFlags::DUP_SORT`.
     pub fn del(&mut self, flags: WriteFlags) -> Result<()> {
         unsafe { lmdb_result(ffi::mdb_cursor_del(self.cursor(), flags.bits())) }
     }
@@ -396,7 +402,7 @@ mod test {
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
-            for &(key, data) in items.iter() {
+            for &(ref key, ref data) in &items {
                 txn.put(db, key, data, WriteFlags::empty()).unwrap();
             }
             txn.commit().unwrap();
@@ -434,7 +440,7 @@ mod test {
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
-            for &(key, data) in items.iter() {
+            for &(ref key, ref data) in &items {
                 txn.put(db, key, data, WriteFlags::empty()).unwrap();
             }
             txn.commit().unwrap();

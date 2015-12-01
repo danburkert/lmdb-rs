@@ -78,11 +78,7 @@ mod test_utils {
             let db = env.open_db(None).unwrap();
             let mut txn = env.begin_rw_txn().unwrap();
             for i in 0..num_rows {
-                txn.put(db,
-                        get_key(i).as_bytes(),
-                        get_data(i).as_bytes(),
-                        WriteFlags::empty())
-                    .unwrap();
+                txn.put(db, &get_key(i), &get_data(i), WriteFlags::empty()).unwrap();
             }
             txn.commit().unwrap();
         }

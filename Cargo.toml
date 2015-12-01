@@ -1,7 +1,7 @@
 [package]
 
 name = "lmdb"
-version = "0.4.3"
+version = "0.5.0"
 authors = ["Dan Burkert <dan@danburkert.com>"]
 license = "Apache-2.0"
 
@@ -11,13 +11,9 @@ readme = "README.md"
 keywords = ["LMDB", "database", "storage-engine", "bindings", "library"]
 documentation = "http://rust-ci.org/danburkert/lmdb-rs/doc/lmdb/"
 
-[lib]
-
-name = "lmdb"
-
 [dependencies.lmdb-sys]
 path = "lmdb-sys"
-version = "0.4.3"
+version = "0.5.0"
 
 [dependencies]
 bitflags = "0.3"

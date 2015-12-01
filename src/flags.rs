@@ -4,7 +4,6 @@ use ffi::*;
 
 bitflags! {
     #[doc="Environment Options"]
-    #[derive(Debug)]
     flags EnvironmentFlags: c_uint {
 
         #[doc="Use a fixed address for the mmap region. This flag must be specified"]
@@ -48,7 +47,7 @@ bitflags! {
         #[doc="flushes dirty buffers to disk and how often `Environment::sync` is called. However,"]
         #[doc="if the filesystem preserves write order and the `WRITE_MAP` flag is not used,"]
         #[doc="transactions exhibit ACI (atomicity, consistency, isolation) properties and only"]
-        #[doc="lose D (durability). I.e. database integrity"] #[doc="is maintained, but a system"]
+        #[doc="lose D (durability). I.e. database integrity is maintained, but a system"]
         #[doc="crash may undo the final transactions. Note that (`NO_SYNC | WRITE_MAP`) leaves the"]
         #[doc="system with no hint for when to write transactions to disk, unless"]
         #[doc="`Environment::sync` is called. (`MAP_ASYNC | WRITE_MAP`) may be preferable."]
@@ -105,7 +104,6 @@ bitflags! {
 
 bitflags! {
     #[doc="Database Options"]
-    #[derive(Debug)]
     flags DatabaseFlags: c_uint {
 
         #[doc="Keys are strings to be compared in reverse order, from the end of the strings"]
@@ -141,7 +139,6 @@ bitflags! {
 
 bitflags! {
     #[doc="Write Options"]
-    #[derive(Debug)]
     flags WriteFlags: c_uint {
 
         #[doc="Insert the new item only if the key does not already appear in the database."]

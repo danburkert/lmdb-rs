@@ -6,7 +6,6 @@ pub type MDB_dbi = ::libc::c_uint;
 pub enum MDB_cursor { }
 
 #[repr(C)]
-#[derive(Copy)]
 pub struct MDB_val {
     pub mv_size: ::libc::size_t,
     pub mv_data: *mut ::libc::c_void,
@@ -36,7 +35,7 @@ pub const MDB_SET_RANGE: ::libc::c_uint = 17;
 pub type MDB_cursor_op = ::libc::c_uint;
 
 #[repr(C)]
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct MDB_stat {
     pub ms_psize: ::libc::c_uint,
     pub ms_depth: ::libc::c_uint,
@@ -47,7 +46,6 @@ pub struct MDB_stat {
 }
 
 #[repr(C)]
-#[derive(Copy)]
 pub struct MDB_envinfo {
     pub me_mapaddr: *mut ::libc::c_void,
     pub me_mapsize: ::libc::size_t,

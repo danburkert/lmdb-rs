@@ -20,9 +20,9 @@ path = "lmdb-sys"
 version = "0.4.3"
 
 [dependencies]
-bitflags = "*"
-libc = "*"
+bitflags = "0.3"
+libc = "0.2"
 
 [dev-dependencies]
-rand = "*"
-tempdir = "*"
+rand = "0.3"
+tempdir = "0.3"

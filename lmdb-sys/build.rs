@@ -7,7 +7,7 @@ use std::path::PathBuf;
 fn main() {
 
     let mut lmdb: PathBuf = PathBuf::from(&env::var("CARGO_MANIFEST_DIR").unwrap());
-    lmdb.push("mdb");
+    lmdb.push("lmdb");
     lmdb.push("libraries");
     lmdb.push("liblmdb");
 

@@ -1,8 +1,7 @@
 //! Idiomatic and safe APIs for interacting with the
 //! [Symas Lightning Memory-Mapped Database (LMDB)](http://symas.com/mdb/).
 
-#![feature(optin_builtin_traits, unsafe_destructor)]
-#![cfg_attr(test, feature(std_misc, test))]
+#![cfg_attr(test, feature(test))]
 
 extern crate libc;
 extern crate lmdb_sys as ffi;
@@ -14,7 +13,6 @@ extern crate lmdb_sys as ffi;
 
 pub use cursor::{
     Cursor,
-    CursorExt,
     RoCursor,
     RwCursor
 };
@@ -27,7 +25,6 @@ pub use transaction::{
     RoTransaction,
     RwTransaction,
     Transaction,
-    TransactionExt,
 };
 
 macro_rules! lmdb_try {

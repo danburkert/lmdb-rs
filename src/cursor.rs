@@ -1,6 +1,6 @@
 use libc::{c_void, size_t, c_uint};
 use std::{ptr, slice};
-use std::marker::{PhantomData, PhantomFn};
+use std::marker::PhantomData;
 
 use database::Database;
 use error::{Error, Result, lmdb_result};
@@ -9,15 +9,12 @@ use flags::WriteFlags;
 use transaction::Transaction;
 
 /// An LMDB cursor.
-pub trait Cursor<'txn> : PhantomFn<(), &'txn [u8]> {
+pub trait Cursor<'txn> {
+
     /// Returns a raw pointer to the underlying LMDB cursor.
     ///
     /// The caller **must** ensure that the pointer is not used after the lifetime of the cursor.
     fn cursor(&self) -> *mut ffi::MDB_cursor;
-}
-
-/// Cursor extension methods.
-pub trait CursorExt<'txn> : Cursor<'txn> + Sized {
 
     /// Retrieves a key/data pair from the cursor. Depending on the cursor op, the current key may
     /// be returned.
@@ -96,8 +93,6 @@ pub trait CursorExt<'txn> : Cursor<'txn> + Sized {
     }
 }
 
-impl<'txn, T> CursorExt<'txn> for T where T: Cursor<'txn> {}
-
 /// A read-only cursor for navigating the items within a database.
 pub struct RoCursor<'txn> {
     cursor: *mut ffi::MDB_cursor,
@@ -110,10 +105,6 @@ impl <'txn> Cursor<'txn> for RoCursor<'txn> {
     }
 }
 
-impl <'txn> !Sync for RoCursor<'txn> {}
-impl <'txn> !Send for RoCursor<'txn> {}
-
-#[unsafe_destructor]
 impl <'txn> Drop for RoCursor<'txn> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_cursor_close(self.cursor) }
@@ -125,7 +116,7 @@ impl <'txn> RoCursor<'txn> {
     /// Creates a new read-only cursor in the given database and transaction. Prefer using
     /// `Transaction::open_cursor`.
     #[doc(hidden)]
-    pub fn new(txn: &'txn Transaction, db: Database) -> Result<RoCursor<'txn>> {
+    pub fn new<T>(txn: &'txn T, db: Database) -> Result<RoCursor<'txn>> where T: Transaction {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
         unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
         Ok(RoCursor {
@@ -147,10 +138,6 @@ impl <'txn> Cursor<'txn> for RwCursor<'txn> {
     }
 }
 
-impl <'txn> !Sync for RwCursor<'txn> {}
-impl <'txn> !Send for RwCursor<'txn> {}
-
-#[unsafe_destructor]
 impl <'txn> Drop for RwCursor<'txn> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_cursor_close(self.cursor) }
@@ -162,7 +149,7 @@ impl <'txn> RwCursor<'txn> {
     /// Creates a new read-only cursor in the given database and transaction. Prefer using
     /// `RwTransaction::open_rw_cursor`.
     #[doc(hidden)]
-    pub fn new(txn: &'txn Transaction, db: Database) -> Result<RwCursor<'txn>> {
+    pub fn new<T>(txn: &'txn T, db: Database) -> Result<RwCursor<'txn>> where T: Transaction {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
         unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
         Ok(RwCursor { cursor: cursor, _marker: PhantomData })

@@ -1,5 +1,5 @@
 use libc::{c_uint, size_t, mode_t};
-use std::ffi::{AsOsStr, CString};
+use std::ffi::CString;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
@@ -9,7 +9,7 @@ use ffi;
 
 use error::{Result, lmdb_result};
 use database::Database;
-use transaction::{RoTransaction, RwTransaction, Transaction, TransactionExt};
+use transaction::{RoTransaction, RwTransaction, Transaction};
 use flags::{DatabaseFlags, EnvironmentFlags};
 
 /// An LMDB environment.

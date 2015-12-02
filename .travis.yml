@@ -1,10 +1,33 @@
 language: rust
+sudo: false
+
+rust:
+- 1.0.0
+- nightly
+
+os:
+  - linux
+  - osx
+
+script:
+  - cargo build --verbose
+
+  - if [ "$TRAVIS_RUST_VERSION" = "nightly" ]; then
+      cargo test;
+    fi
+
+  - if [ "$ARCH" = "x86_64" ] && \
+       [ "$TRAVIS_RUST_VERSION" = "nightly" ] && \
+       [ "$TRAVIS_OS_NAME" = "linux" ] && \
+       [ "$TRAVIS_PULL_REQUEST" = "false" ] && \
+       [ "$TRAVIS_BRANCH" = "master" ]; then
+      cargo doc;
+      pip install ghp-import --user $USER;
+      $HOME/.local/bin/ghp-import -n target/doc;
+      git push -qf https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages;
+    fi
+
 env:
   global:
+    - TRAVIS_CARGO_NIGHTLY_FEATURE=""
     - secure: kIqvhKggHHxNiSuVYjh09kGJDiMqg8jYLEW8S+iyuOGLJJ6EZJFdNTMKuyp8Su/EfjzhGgpSnrs4hFt/wghfGoIiKetNnE5tThnoXOxr58V1JLCD0Om4LsoX+k+PsG5KPsEde2EbXIVDemrSJV9u7cAEq1BI+ntBS4dwiEO/1u0=
-script:
-  - cargo build -v
-  - cargo test -v
-  - cargo doc
-after_script:
-  - mv target/doc . && curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh

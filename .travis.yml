@@ -16,8 +16,7 @@ script:
       cargo test;
     fi
 
-  - if [ "$ARCH" = "x86_64" ] && \
-       [ "$TRAVIS_RUST_VERSION" = "nightly" ] && \
+  - if [ "$TRAVIS_RUST_VERSION" = "nightly" ] && \
        [ "$TRAVIS_OS_NAME" = "linux" ] && \
        [ "$TRAVIS_PULL_REQUEST" = "false" ] && \
        [ "$TRAVIS_BRANCH" = "master" ]; then

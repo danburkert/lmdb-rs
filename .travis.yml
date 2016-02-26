@@ -27,4 +27,4 @@ after_success:
 env:
   global:
     - TRAVIS_CARGO_NIGHTLY_FEATURE=""
-    - secure: kIqvhKggHHxNiSuVYjh09kGJDiMqg8jYLEW8S+iyuOGLJJ6EZJFdNTMKuyp8Su/EfjzhGgpSnrs4hFt/wghfGoIiKetNnE5tThnoXOxr58V1JLCD0Om4LsoX+k+PsG5KPsEde2EbXIVDemrSJV9u7cAEq1BI+ntBS4dwiEO/1u0=
+    - secure: "BCsYNBS56hCKCMBZFLYDxKk3+UbFkAt+JRpPG9aiQyTVGkVqXNm4jPhiNSc4/JMuxoBVne+EzUrKVgdv3D7jTOx0sPsWEiE/oFK1K+6xusvsA87ZdDBC0hTRMiEHaufgtaGFJNwWW2tLzwlcdzvGUPVGYogao2MAxl1xlpppvso="

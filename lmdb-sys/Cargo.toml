@@ -7,7 +7,7 @@ license = "Apache-2.0"
 description = "Rust bindings for liblmdb."
 repository = "https://github.com/danburkert/lmdb-rs.git"
 readme = "../README.md"
-documentation = "http://rust-ci.org/danburkert/lmdb-rs/doc/lmdb-sys/"
+documentation = "http://danburkert.github.io/lmdb-rs/lmdb_sys/index.html"
 
 build = "build.rs"
 

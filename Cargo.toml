@@ -9,7 +9,7 @@ description = "Idiomatic and safe LMDB wrapper."
 repository = "https://github.com/danburkert/lmdb-rs.git"
 readme = "README.md"
 keywords = ["LMDB", "database", "storage-engine", "bindings", "library"]
-documentation = "http://rust-ci.org/danburkert/lmdb-rs/doc/lmdb/"
+documentation = "http://danburkert.github.io/lmdb-rs/lmdb/index.html"
 
 [dependencies.lmdb-sys]
 path = "lmdb-sys"

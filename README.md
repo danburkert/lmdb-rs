@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/danburkert/lmdb-rs.svg?branch=master)](https://travis-ci.org/danburkert/lmdb-rs)
 
-[Documentation](http://rust-ci.org/danburkert/lmdb-rs/doc/lmdb/)
+[Documentation](http://danburkert.github.io/lmdb-rs/lmdb/index.html)
 
 [Cargo](https://crates.io/crates/lmdb)
 

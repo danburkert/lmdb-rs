@@ -9,22 +9,20 @@ os:
   - linux
   - osx
 
+before_script:
+  - pip install 'travis-cargo<0.2' --user
+  - export PATH=$HOME/.local/bin:$PATH              # Linux
+  - export PATH=$HOME/Library/Python/2.7/bin:$PATH  # OS X
+
 script:
-  - cargo build --verbose
+  - |
+      travis-cargo build &&
+      travis-cargo --only nightly test &&
+      travis-cargo bench &&
+      travis-cargo --only nightly doc
 
-  - if [ "$TRAVIS_RUST_VERSION" = "nightly" ]; then
-      cargo test;
-    fi
-
-  - if [ "$TRAVIS_RUST_VERSION" = "nightly" ] && \
-       [ "$TRAVIS_OS_NAME" = "linux" ] && \
-       [ "$TRAVIS_PULL_REQUEST" = "false" ] && \
-       [ "$TRAVIS_BRANCH" = "master" ]; then
-      cargo doc;
-      pip install ghp-import --user $USER;
-      $HOME/.local/bin/ghp-import -n target/doc;
-      git push -qf https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages;
-    fi
+after_success:
+  - travis-cargo --only nightly doc-upload
 
 env:
   global:

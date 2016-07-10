@@ -446,6 +446,8 @@ mod test {
 
         assert_eq!(items.clone().into_iter().skip(1).collect::<Vec<_>>(),
                    cursor.iter_from(b"key2").unwrap().collect::<Vec<_>>());
+
+        assert!(cursor.iter_from(b"foo").is_err());
     }
 
     #[test]
@@ -492,6 +494,7 @@ mod test {
         assert_eq!(items.clone().into_iter().skip(3).take(3).collect::<Vec<(&[u8], &[u8])>>(),
                    cursor.iter_dup_of(b"b").unwrap().collect::<Vec<_>>());
 
+        assert!(cursor.iter_dup_from(b"foo").is_err());
         assert!(cursor.iter_dup_of(b"foo").is_err());
     }
 

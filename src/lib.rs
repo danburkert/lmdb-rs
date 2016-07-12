@@ -15,7 +15,8 @@ pub use cursor::{
     Cursor,
     RoCursor,
     RwCursor,
-    Iter
+    Iter,
+    IterDup,
 };
 pub use database::Database;
 pub use environment::{Environment, EnvironmentBuilder};

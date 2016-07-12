@@ -14,7 +14,8 @@ extern crate lmdb_sys as ffi;
 pub use cursor::{
     Cursor,
     RoCursor,
-    RwCursor
+    RwCursor,
+    Iter
 };
 pub use database::Database;
 pub use environment::{Environment, EnvironmentBuilder};

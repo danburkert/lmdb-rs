@@ -62,7 +62,7 @@ extern "C" {
     pub fn mdb_version(major: *mut ::libc::c_int, minor: *mut ::libc::c_int, patch: *mut ::libc::c_int) -> *mut ::libc::c_char;
     pub fn mdb_strerror(err: ::libc::c_int) -> *mut ::libc::c_char;
     pub fn mdb_env_create(env: *mut *mut MDB_env) -> ::libc::c_int;
-    pub fn mdb_env_open(env: *mut MDB_env, path: *const ::libc::c_char, flags: ::libc::c_uint, mode: ::libc::mode_t) -> ::libc::c_int;
+    pub fn mdb_env_open(env: *mut MDB_env, path: *const ::libc::c_char, flags: ::libc::c_uint, mode: super::mode_t) -> ::libc::c_int;
     pub fn mdb_env_copy(env: *mut MDB_env, path: *const ::libc::c_char) -> ::libc::c_int;
     pub fn mdb_env_copyfd(env: *mut MDB_env, fd: ::libc::c_int) -> ::libc::c_int;
     pub fn mdb_env_copy2(env: *mut MDB_env, path: *const ::libc::c_char, flags: ::libc::c_uint) -> ::libc::c_int;

@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/danburkert/lmdb-rs.svg?branch=master)](https://travis-ci.org/danburkert/lmdb-rs)
+[![Windows Build Status](https://ci.appveyor.com/api/projects/status/0bw21yfqsrsv3soh/branch/master?svg=true)](https://ci.appveyor.com/project/danburkert/lmdb-rs/branch/master)
 
 [Documentation](http://danburkert.github.io/lmdb-rs/lmdb/index.html)
 

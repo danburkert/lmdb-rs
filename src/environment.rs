@@ -1,6 +1,9 @@
-use libc::{c_uint, size_t, mode_t};
+use libc::{c_uint, size_t};
 use std::ffi::CString;
+#[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
+#[cfg(windows)]
+use std::ffi::OsStr;
 use std::path::Path;
 use std::ptr;
 use std::sync::Mutex;
@@ -11,6 +14,18 @@ use error::{Result, lmdb_result};
 use database::Database;
 use transaction::{RoTransaction, RwTransaction, Transaction};
 use flags::{DatabaseFlags, EnvironmentFlags};
+
+#[cfg(windows)]
+/// Adding a 'missing' trait from windows OsStrExt
+trait OsStrExtLmdb {
+    fn as_bytes(&self) -> &[u8];
+}
+#[cfg(windows)]
+impl OsStrExtLmdb for OsStr {
+    fn as_bytes(&self) -> &[u8] {
+        &self.to_str().unwrap().as_bytes()
+    }
+}
 
 /// An LMDB environment.
 ///
@@ -176,7 +191,7 @@ impl EnvironmentBuilder {
     /// On Windows, the permissions will be ignored.
     ///
     /// The path may not contain the null character.
-    pub fn open_with_permissions(&self, path: &Path, mode: mode_t) -> Result<Environment> {
+    pub fn open_with_permissions(&self, path: &Path, mode: ffi::mode_t) -> Result<Environment> {
         let mut env: *mut ffi::MDB_env = ptr::null_mut();
         unsafe {
             lmdb_try!(ffi::mdb_env_create(&mut env));

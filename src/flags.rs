@@ -4,7 +4,7 @@ use ffi::*;
 
 bitflags! {
     #[doc="Environment Options"]
-    flags EnvironmentFlags: c_uint {
+    pub flags EnvironmentFlags: c_uint {
 
         #[doc="Use a fixed address for the mmap region. This flag must be specified"]
         #[doc="when creating the environment, and is stored persistently in the environment."]
@@ -104,7 +104,7 @@ bitflags! {
 
 bitflags! {
     #[doc="Database Options"]
-    flags DatabaseFlags: c_uint {
+    pub flags DatabaseFlags: c_uint {
 
         #[doc="Keys are strings to be compared in reverse order, from the end of the strings"]
         #[doc="to the beginning. By default, Keys are treated as strings and compared from"]
@@ -139,7 +139,7 @@ bitflags! {
 
 bitflags! {
     #[doc="Write Options"]
-    flags WriteFlags: c_uint {
+    pub flags WriteFlags: c_uint {
 
         #[doc="Insert the new item only if the key does not already appear in the database."]
         #[doc="The function will return `LmdbError::KeyExist` if the key already appears in the"]

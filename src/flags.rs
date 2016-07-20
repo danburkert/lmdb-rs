@@ -61,7 +61,7 @@ bitflags! {
         const MAP_ASYNC = MDB_MAPASYNC,
 
         #[doc="Don't use thread-local storage. Tie reader locktable slots to transaction objects"]
-        #[doc="instead of to threads. I.e. `RoTransaction::reset` keeps the slot reseved for the"]
+        #[doc="instead of to threads. I.e. `RoTransaction::reset` keeps the slot reserved for the"]
         #[doc="transaction object. A thread may use parallel read-only transactions. A read-only"]
         #[doc="transaction may span threads if the user synchronizes its use. Applications that"]
         #[doc="multiplex many the user synchronizes its use. Applications that multiplex many user"]

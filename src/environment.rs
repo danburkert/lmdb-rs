@@ -36,14 +36,13 @@ pub struct Environment {
 }
 
 impl Environment {
-
     /// Creates a new builder for specifying options for opening an LMDB environment.
     pub fn new() -> EnvironmentBuilder {
         EnvironmentBuilder {
             flags: EnvironmentFlags::empty(),
             max_readers: None,
             max_dbs: None,
-            map_size: None
+            map_size: None,
         }
     }
 
@@ -131,7 +130,12 @@ impl Environment {
     /// the environment was opened with `MDB_NOSYNC` or in part `MDB_NOMETASYNC`.
     pub fn sync(&self, force: bool) -> Result<()> {
         unsafe {
-            lmdb_result(ffi::mdb_env_sync(self.env(), if force { 1 } else { 0 }))
+            lmdb_result(ffi::mdb_env_sync(self.env(),
+                                          if force {
+                                              1
+                                          } else {
+                                              0
+                                          }))
         }
     }
 
@@ -176,7 +180,6 @@ pub struct EnvironmentBuilder {
 }
 
 impl EnvironmentBuilder {
-
     /// Open an environment.
     ///
     /// On UNIX, the database files will be opened with 644 permissions.
@@ -208,12 +211,17 @@ impl EnvironmentBuilder {
                                        ffi::mdb_env_close(env))
             }
             lmdb_try_with_cleanup!(ffi::mdb_env_open(env,
-                                                     CString::new(path.as_os_str().as_bytes()).unwrap().as_ptr(),
+                                                     CString::new(path.as_os_str().as_bytes())
+                                                         .unwrap()
+                                                         .as_ptr(),
                                                      self.flags.bits(),
                                                      mode),
                                    ffi::mdb_env_close(env));
         }
-        Ok(Environment { env: env, dbi_open_mutex: Mutex::new(()) })
+        Ok(Environment {
+            env: env,
+            dbi_open_mutex: Mutex::new(()),
+        })
 
     }
 
@@ -278,34 +286,39 @@ mod test {
         let dir = TempDir::new("test").unwrap();
 
         // opening non-existent env with read-only should fail
-        assert!(Environment::new().set_flags(READ_ONLY)
-                                  .open(dir.path())
-                                  .is_err());
+        assert!(Environment::new()
+            .set_flags(READ_ONLY)
+            .open(dir.path())
+            .is_err());
 
         // opening non-existent env should succeed
         assert!(Environment::new().open(dir.path()).is_ok());
 
         // opening env with read-only should succeed
-        assert!(Environment::new().set_flags(READ_ONLY)
-                                  .open(dir.path())
-                                  .is_ok());
+        assert!(Environment::new()
+            .set_flags(READ_ONLY)
+            .open(dir.path())
+            .is_ok());
     }
 
     #[test]
     fn test_begin_txn() {
         let dir = TempDir::new("test").unwrap();
 
-        { // writable environment
+        {
+            // writable environment
             let env = Environment::new().open(dir.path()).unwrap();
 
             assert!(env.begin_rw_txn().is_ok());
             assert!(env.begin_ro_txn().is_ok());
         }
 
-        { // read-only environment
-            let env = Environment::new().set_flags(READ_ONLY)
-                                        .open(dir.path())
-                                        .unwrap();
+        {
+            // read-only environment
+            let env = Environment::new()
+                .set_flags(READ_ONLY)
+                .open(dir.path())
+                .unwrap();
 
             assert!(env.begin_rw_txn().is_err());
             assert!(env.begin_ro_txn().is_ok());
@@ -315,9 +328,10 @@ mod test {
     #[test]
     fn test_open_db() {
         let dir = TempDir::new("test").unwrap();
-        let env = Environment::new().set_max_dbs(1)
-                                    .open(dir.path())
-                                    .unwrap();
+        let env = Environment::new()
+            .set_max_dbs(1)
+            .open(dir.path())
+            .unwrap();
 
         assert!(env.open_db(None).is_ok());
         assert!(env.open_db(Some("testdb")).is_err());
@@ -326,9 +340,10 @@ mod test {
     #[test]
     fn test_create_db() {
         let dir = TempDir::new("test").unwrap();
-        let env = Environment::new().set_max_dbs(11)
-                                    .open(dir.path())
-                                    .unwrap();
+        let env = Environment::new()
+            .set_max_dbs(11)
+            .open(dir.path())
+            .unwrap();
         assert!(env.open_db(Some("testdb")).is_err());
         assert!(env.create_db(Some("testdb"), DatabaseFlags::empty()).is_ok());
         assert!(env.open_db(Some("testdb")).is_ok())
@@ -337,12 +352,15 @@ mod test {
     #[test]
     fn test_close_database() {
         let dir = TempDir::new("test").unwrap();
-        let mut env = Environment::new().set_max_dbs(10)
-                                        .open(dir.path())
-                                        .unwrap();
+        let mut env = Environment::new()
+            .set_max_dbs(10)
+            .open(dir.path())
+            .unwrap();
 
         let db = env.create_db(Some("db"), DatabaseFlags::empty()).unwrap();
-        unsafe { env.close_db(db); }
+        unsafe {
+            env.close_db(db);
+        }
         assert!(env.open_db(Some("db")).is_ok());
     }
 
@@ -352,10 +370,12 @@ mod test {
         {
             let env = Environment::new().open(dir.path()).unwrap();
             assert!(env.sync(true).is_ok());
-        } {
-            let env = Environment::new().set_flags(READ_ONLY)
-                                        .open(dir.path())
-                                        .unwrap();
+        }
+        {
+            let env = Environment::new()
+                .set_flags(READ_ONLY)
+                .open(dir.path())
+                .unwrap();
             assert!(env.sync(true).is_err());
         }
     }

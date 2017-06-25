@@ -290,7 +290,6 @@ mod test {
     use flags::*;
     use super::*;
     use test_utils::*;
-    use transaction::*;
 
     #[test]
     fn test_get() {

@@ -1,5 +1,5 @@
 use libc::{c_uint, size_t};
-use std::ffi::CString;
+use std::ffi::{CString, NulError};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 #[cfg(windows)]
@@ -207,10 +207,11 @@ impl EnvironmentBuilder {
                 lmdb_try_with_cleanup!(ffi::mdb_env_set_mapsize(env, map_size),
                                        ffi::mdb_env_close(env))
             }
-            lmdb_try_with_cleanup!(ffi::mdb_env_open(env,
-                                                     CString::new(path.as_os_str().as_bytes()).unwrap().as_ptr(),
-                                                     self.flags.bits(),
-                                                     mode),
+            let path = match CString::new(path.as_os_str().as_bytes()) {
+                Ok(path) => path,
+                Err(NulError { .. }) => return Err(::Error::Invalid),
+            };
+            lmdb_try_with_cleanup!(ffi::mdb_env_open(env, path.as_ptr(), self.flags.bits(), mode),
                                    ffi::mdb_env_close(env));
         }
         Ok(Environment { env: env, dbi_open_mutex: Mutex::new(()) })

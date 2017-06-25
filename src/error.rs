@@ -145,5 +145,4 @@ mod test {
         assert_eq!("MDB_NOTFOUND: No matching key/data pair found",
                    Error::NotFound.description());
     }
-
 }

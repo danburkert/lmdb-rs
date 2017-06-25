@@ -2,6 +2,8 @@
 //! [Symas Lightning Memory-Mapped Database (LMDB)](http://symas.com/mdb/).
 
 #![cfg_attr(test, feature(test))]
+#![deny(warnings)]
+#![doc(html_root_url = "https://docs.rs/lmdb/0.6.0")]
 
 extern crate libc;
 extern crate lmdb_sys as ffi;

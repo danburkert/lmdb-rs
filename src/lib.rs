@@ -6,28 +6,21 @@
 extern crate libc;
 extern crate lmdb_sys as ffi;
 
-#[cfg(test)] extern crate rand;
-#[cfg(test)] extern crate tempdir;
-#[cfg(test)] extern crate test;
-#[macro_use] extern crate bitflags;
+#[cfg(test)]
+extern crate rand;
+#[cfg(test)]
+extern crate tempdir;
+#[cfg(test)]
+extern crate test;
+#[macro_use]
+extern crate bitflags;
 
-pub use cursor::{
-    Cursor,
-    RoCursor,
-    RwCursor,
-    Iter,
-    IterDup,
-};
+pub use cursor::{Cursor, RoCursor, RwCursor, Iter, IterDup};
 pub use database::Database;
 pub use environment::{Environment, EnvironmentBuilder};
 pub use error::{Error, Result};
 pub use flags::*;
-pub use transaction::{
-    InactiveTransaction,
-    RoTransaction,
-    RwTransaction,
-    Transaction,
-};
+pub use transaction::{InactiveTransaction, RoTransaction, RwTransaction, Transaction};
 
 macro_rules! lmdb_try {
     ($expr:expr) => ({

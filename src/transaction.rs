@@ -1,6 +1,6 @@
 use libc::{c_uint, c_void, size_t};
 use std::{mem, ptr, slice};
-use std::marker::PhantomData ;
+use std::marker::PhantomData;
 
 use ffi;
 
@@ -13,8 +13,7 @@ use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 /// An LMDB transaction.
 ///
 /// All database operations require a transaction.
-pub trait Transaction : Sized {
-
+pub trait Transaction: Sized {
     /// Returns a raw pointer to the underlying LMDB transaction.
     ///
     /// The caller **must** ensure that the pointer is not used after the
@@ -68,22 +67,24 @@ pub trait Transaction : Sized {
     /// returned. Retrieval of other items requires the use of
     /// `Transaction::cursor_get`. If the item is not in the database, then
     /// `Error::NotFound` will be returned.
-    fn get<'txn, K>(&'txn self,
-                    database: Database,
-                    key: &K)
-                    -> Result<&'txn [u8]>
-    where K: AsRef<[u8]> {
+    fn get<'txn, K>(&'txn self, database: Database, key: &K) -> Result<&'txn [u8]>
+        where K: AsRef<[u8]>
+    {
         let key = key.as_ref();
-        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *mut c_void };
-        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: 0,
-                                                        mv_data: ptr::null_mut() };
+        let mut key_val: ffi::MDB_val = ffi::MDB_val {
+            mv_size: key.len() as size_t,
+            mv_data: key.as_ptr() as *mut c_void,
+        };
+        let mut data_val: ffi::MDB_val = ffi::MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
         unsafe {
             match ffi::mdb_get(self.txn(), database.dbi(), &mut key_val, &mut data_val) {
                 ffi::MDB_SUCCESS => {
                     Ok(slice::from_raw_parts(data_val.mv_data as *const u8,
                                              data_val.mv_size as usize))
-                },
+                }
                 err_code => Err(Error::from_err_code(err_code)),
             }
         }
@@ -110,14 +111,13 @@ pub struct RoTransaction<'env> {
     _marker: PhantomData<&'env ()>,
 }
 
-impl <'env> Drop for RoTransaction<'env> {
+impl<'env> Drop for RoTransaction<'env> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_txn_abort(self.txn) }
     }
 }
 
-impl <'env> RoTransaction<'env> {
-
+impl<'env> RoTransaction<'env> {
     /// Creates a new read-only transaction in the given environment. Prefer
     /// using `Environment::begin_ro_txn`.
     #[doc(hidden)]
@@ -128,7 +128,10 @@ impl <'env> RoTransaction<'env> {
                                                 ptr::null_mut(),
                                                 ffi::MDB_RDONLY,
                                                 &mut txn)));
-            Ok(RoTransaction { txn: txn, _marker: PhantomData })
+            Ok(RoTransaction {
+                txn: txn,
+                _marker: PhantomData,
+            })
         }
     }
 
@@ -150,11 +153,14 @@ impl <'env> RoTransaction<'env> {
             mem::forget(self);
             ffi::mdb_txn_reset(txn)
         };
-        InactiveTransaction { txn: txn, _marker: PhantomData }
+        InactiveTransaction {
+            txn: txn,
+            _marker: PhantomData,
+        }
     }
 }
 
-impl <'env> Transaction for RoTransaction<'env> {
+impl<'env> Transaction for RoTransaction<'env> {
     fn txn(&self) -> *mut ffi::MDB_txn {
         self.txn
     }
@@ -166,14 +172,13 @@ pub struct InactiveTransaction<'env> {
     _marker: PhantomData<&'env ()>,
 }
 
-impl <'env> Drop for InactiveTransaction<'env> {
+impl<'env> Drop for InactiveTransaction<'env> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_txn_abort(self.txn) }
     }
 }
 
-impl <'env> InactiveTransaction<'env> {
-
+impl<'env> InactiveTransaction<'env> {
     /// Renews the inactive transaction, returning an active read-only
     /// transaction.
     ///
@@ -185,7 +190,10 @@ impl <'env> InactiveTransaction<'env> {
             mem::forget(self);
             try!(lmdb_result(ffi::mdb_txn_renew(txn)))
         };
-        Ok(RoTransaction { txn: txn, _marker: PhantomData })
+        Ok(RoTransaction {
+            txn: txn,
+            _marker: PhantomData,
+        })
     }
 }
 
@@ -195,14 +203,13 @@ pub struct RwTransaction<'env> {
     _marker: PhantomData<&'env ()>,
 }
 
-impl <'env> Drop for RwTransaction<'env> {
+impl<'env> Drop for RwTransaction<'env> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_txn_abort(self.txn) }
     }
 }
 
-impl <'env> RwTransaction<'env> {
-
+impl<'env> RwTransaction<'env> {
     /// Creates a new read-write transaction in the given environment. Prefer
     /// using `Environment::begin_ro_txn`.
     #[doc(hidden)]
@@ -213,7 +220,10 @@ impl <'env> RwTransaction<'env> {
                                                 ptr::null_mut(),
                                                 EnvironmentFlags::empty().bits(),
                                                 &mut txn)));
-            Ok(RwTransaction { txn: txn, _marker: PhantomData })
+            Ok(RwTransaction {
+                txn: txn,
+                _marker: PhantomData,
+            })
         }
     }
 
@@ -255,13 +265,19 @@ impl <'env> RwTransaction<'env> {
                      data: &D,
                      flags: WriteFlags)
                      -> Result<()>
-    where K: AsRef<[u8]>, D: AsRef<[u8]> {
+        where K: AsRef<[u8]>,
+              D: AsRef<[u8]>
+    {
         let key = key.as_ref();
         let data = data.as_ref();
-        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *mut c_void };
-        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
-                                                        mv_data: data.as_ptr() as *mut c_void };
+        let mut key_val: ffi::MDB_val = ffi::MDB_val {
+            mv_size: key.len() as size_t,
+            mv_data: key.as_ptr() as *mut c_void,
+        };
+        let mut data_val: ffi::MDB_val = ffi::MDB_val {
+            mv_size: data.len() as size_t,
+            mv_data: data.as_ptr() as *mut c_void,
+        };
         unsafe {
             lmdb_result(ffi::mdb_put(self.txn(),
                                      database.dbi(),
@@ -280,20 +296,24 @@ impl <'env> RwTransaction<'env> {
                             len: size_t,
                             flags: WriteFlags)
                             -> Result<&'txn mut [u8]>
-    where K: AsRef<[u8]> {
+        where K: AsRef<[u8]>
+    {
         let key = key.as_ref();
-        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *mut c_void };
-        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: len,
-                                                        mv_data: ptr::null_mut::<c_void>() };
+        let mut key_val: ffi::MDB_val = ffi::MDB_val {
+            mv_size: key.len() as size_t,
+            mv_data: key.as_ptr() as *mut c_void,
+        };
+        let mut data_val: ffi::MDB_val = ffi::MDB_val {
+            mv_size: len,
+            mv_data: ptr::null_mut::<c_void>(),
+        };
         unsafe {
             try!(lmdb_result(ffi::mdb_put(self.txn(),
                                           database.dbi(),
                                           &mut key_val,
                                           &mut data_val,
                                           flags.bits() | ffi::MDB_RESERVE)));
-            Ok(slice::from_raw_parts_mut(data_val.mv_data as *mut u8,
-                                         data_val.mv_size as usize))
+            Ok(slice::from_raw_parts_mut(data_val.mv_data as *mut u8, data_val.mv_size as usize))
         }
     }
 
@@ -307,24 +327,26 @@ impl <'env> RwTransaction<'env> {
     /// `Some` only the matching data item will be deleted. This function will
     /// return `Error::NotFound` if the specified key/data pair is not in the
     /// database.
-    pub fn del<K>(&mut self,
-           database: Database,
-           key: &K,
-           data: Option<&[u8]>)
-           -> Result<()>
-    where K: AsRef<[u8]> {
+    pub fn del<K>(&mut self, database: Database, key: &K, data: Option<&[u8]>) -> Result<()>
+        where K: AsRef<[u8]>
+    {
         let key = key.as_ref();
-        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *mut c_void };
-        let data_val: Option<ffi::MDB_val> =
-            data.map(|data| ffi::MDB_val { mv_size: data.len() as size_t,
-                                           mv_data: data.as_ptr() as *mut c_void });
+        let mut key_val: ffi::MDB_val = ffi::MDB_val {
+            mv_size: key.len() as size_t,
+            mv_data: key.as_ptr() as *mut c_void,
+        };
+        let data_val: Option<ffi::MDB_val> = data.map(|data| {
+            ffi::MDB_val {
+                mv_size: data.len() as size_t,
+                mv_data: data.as_ptr() as *mut c_void,
+            }
+        });
         unsafe {
             lmdb_result(ffi::mdb_del(self.txn(),
                                      database.dbi(),
                                      &mut key_val,
                                      data_val.map(|mut data_val| &mut data_val as *mut _)
-                                             .unwrap_or(ptr::null_mut())))
+                                         .unwrap_or(ptr::null_mut())))
         }
     }
 
@@ -350,11 +372,14 @@ impl <'env> RwTransaction<'env> {
             let env: *mut ffi::MDB_env = ffi::mdb_txn_env(self.txn());
             ffi::mdb_txn_begin(env, self.txn(), 0, &mut nested);
         }
-        Ok(RwTransaction { txn: nested, _marker: PhantomData })
+        Ok(RwTransaction {
+            txn: nested,
+            _marker: PhantomData,
+        })
     }
 }
 
-impl <'env> Transaction for RwTransaction<'env> {
+impl<'env> Transaction for RwTransaction<'env> {
     fn txn(&self) -> *mut ffi::MDB_txn {
         self.txn
     }
@@ -487,8 +512,10 @@ mod test {
     #[test]
     fn test_drop_db() {
         let dir = TempDir::new("test").unwrap();
-        let env = Environment::new().set_max_dbs(2)
-                                        .open(dir.path()).unwrap();
+        let env = Environment::new()
+            .set_max_dbs(2)
+            .open(dir.path())
+            .unwrap();
         let db = env.create_db(Some("test"), DatabaseFlags::empty()).unwrap();
 
         {
@@ -498,7 +525,9 @@ mod test {
         }
         {
             let mut txn = env.begin_rw_txn().unwrap();
-            unsafe { txn.drop_db(db).unwrap(); }
+            unsafe {
+                txn.drop_db(db).unwrap();
+            }
             txn.commit().unwrap();
         }
 
@@ -521,7 +550,7 @@ mod test {
             let reader_env = env.clone();
             let reader_barrier = barrier.clone();
 
-            threads.push(thread::spawn(move|| {
+            threads.push(thread::spawn(move || {
                 let db = reader_env.open_db(None).unwrap();
                 {
                     let txn = reader_env.begin_ro_txn().unwrap();
@@ -561,13 +590,13 @@ mod test {
         for i in 0..n {
             let writer_env = env.clone();
 
-            threads.push(thread::spawn(move|| {
+            threads.push(thread::spawn(move || {
                 let db = writer_env.open_db(None).unwrap();
                 let mut txn = writer_env.begin_rw_txn().unwrap();
                 txn.put(db,
-                        &format!("{}{}", key, i),
-                        &format!("{}{}", val, i),
-                        WriteFlags::empty())
+                         &format!("{}{}", key, i),
+                         &format!("{}{}", val, i),
+                         WriteFlags::empty())
                     .unwrap();
                 txn.commit().is_ok()
             }));
@@ -615,8 +644,14 @@ mod test {
         let dbi = db.dbi();
         let txn = _txn.txn();
 
-        let mut key_val: MDB_val = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
-        let mut data_val: MDB_val = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+        let mut key_val: MDB_val = MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
+        let mut data_val: MDB_val = MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
 
         b.iter(|| unsafe {
             let mut i: size_t = 0;
@@ -662,8 +697,14 @@ mod test {
         let dbi = db.dbi();
         let env = _env.env();
 
-        let mut key_val: MDB_val = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
-        let mut data_val: MDB_val = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+        let mut key_val: MDB_val = MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
+        let mut data_val: MDB_val = MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
 
         b.iter(|| unsafe {
             let mut txn: *mut MDB_txn = ptr::null_mut();

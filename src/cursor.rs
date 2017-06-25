@@ -10,7 +10,6 @@ use transaction::Transaction;
 
 /// An LMDB cursor.
 pub trait Cursor<'txn> {
-
     /// Returns a raw pointer to the underlying LMDB cursor.
     ///
     /// The caller **must** ensure that the pointer is not used after the
@@ -29,7 +28,11 @@ pub trait Cursor<'txn> {
             let mut data_val = slice_to_val(data);
             let key_ptr = key_val.mv_data;
             try!(lmdb_result(ffi::mdb_cursor_get(self.cursor(), &mut key_val, &mut data_val, op)));
-            let key_out = if key_ptr != key_val.mv_data { Some(val_to_slice(key_val)) } else { None };
+            let key_out = if key_ptr != key_val.mv_data {
+                Some(val_to_slice(key_val))
+            } else {
+                None
+            };
             let data_out = val_to_slice(data_val);
             Ok((key_out, data_out))
         }
@@ -61,7 +64,9 @@ pub trait Cursor<'txn> {
     /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the
     /// duplicate data items of each key will be returned before moving on to
     /// the next key.
-    fn iter_from<K>(&mut self, key: K) -> Iter<'txn> where K: AsRef<[u8]> {
+    fn iter_from<K>(&mut self, key: K) -> Iter<'txn>
+        where K: AsRef<[u8]>
+    {
         self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE).unwrap();
         Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT)
     }
@@ -82,15 +87,18 @@ pub trait Cursor<'txn> {
 
     /// Iterate over duplicate items in the database starting from the given
     /// key. Each item will be returned as an iterator of its duplicates.
-    fn iter_dup_from<K>(&mut self, key: &K) -> IterDup<'txn> where K: AsRef<[u8]> {
+    fn iter_dup_from<K>(&mut self, key: &K) -> IterDup<'txn>
+        where K: AsRef<[u8]>
+    {
         self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE).unwrap();
         IterDup::new(self.cursor(), ffi::MDB_GET_CURRENT)
     }
 
     /// Iterate over the duplicates of the item in the database with the given
     /// key.
-    fn iter_dup_of<K>(&mut self, key: &K) -> Result<Iter<'txn>> where K:
-        AsRef<[u8]> {
+    fn iter_dup_of<K>(&mut self, key: &K) -> Result<Iter<'txn>>
+        where K: AsRef<[u8]>
+    {
         try!(self.get(Some(key.as_ref()), None, ffi::MDB_SET));
         Ok(Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT_DUP))
     }
@@ -102,26 +110,29 @@ pub struct RoCursor<'txn> {
     _marker: PhantomData<fn() -> &'txn ()>,
 }
 
-impl <'txn> Cursor<'txn> for RoCursor<'txn> {
+impl<'txn> Cursor<'txn> for RoCursor<'txn> {
     fn cursor(&self) -> *mut ffi::MDB_cursor {
         self.cursor
     }
 }
 
-impl <'txn> Drop for RoCursor<'txn> {
+impl<'txn> Drop for RoCursor<'txn> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_cursor_close(self.cursor) }
     }
 }
 
-impl <'txn> RoCursor<'txn> {
-
+impl<'txn> RoCursor<'txn> {
     /// Creates a new read-only cursor in the given database and transaction.
     /// Prefer using `Transaction::open_cursor`.
     #[doc(hidden)]
-    pub fn new<T>(txn: &'txn T, db: Database) -> Result<RoCursor<'txn>> where T: Transaction {
+    pub fn new<T>(txn: &'txn T, db: Database) -> Result<RoCursor<'txn>>
+        where T: Transaction
+    {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
-        unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
+        unsafe {
+            try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor)));
+        }
         Ok(RoCursor {
             cursor: cursor,
             _marker: PhantomData,
@@ -135,39 +146,51 @@ pub struct RwCursor<'txn> {
     _marker: PhantomData<fn() -> &'txn ()>,
 }
 
-impl <'txn> Cursor<'txn> for RwCursor<'txn> {
+impl<'txn> Cursor<'txn> for RwCursor<'txn> {
     fn cursor(&self) -> *mut ffi::MDB_cursor {
         self.cursor
     }
 }
 
-impl <'txn> Drop for RwCursor<'txn> {
+impl<'txn> Drop for RwCursor<'txn> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_cursor_close(self.cursor) }
     }
 }
 
-impl <'txn> RwCursor<'txn> {
-
+impl<'txn> RwCursor<'txn> {
     /// Creates a new read-only cursor in the given database and transaction.
     /// Prefer using `RwTransaction::open_rw_cursor`.
     #[doc(hidden)]
-    pub fn new<T>(txn: &'txn T, db: Database) -> Result<RwCursor<'txn>> where T: Transaction {
+    pub fn new<T>(txn: &'txn T, db: Database) -> Result<RwCursor<'txn>>
+        where T: Transaction
+    {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
-        unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
-        Ok(RwCursor { cursor: cursor, _marker: PhantomData })
+        unsafe {
+            try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor)));
+        }
+        Ok(RwCursor {
+            cursor: cursor,
+            _marker: PhantomData,
+        })
     }
 
     /// Puts a key/data pair into the database. The cursor will be positioned at
     /// the new data item, or on failure usually near it.
     pub fn put<K, D>(&mut self, key: &K, data: &D, flags: WriteFlags) -> Result<()>
-    where K: AsRef<[u8]>, D: AsRef<[u8]> {
+        where K: AsRef<[u8]>,
+              D: AsRef<[u8]>
+    {
         let key = key.as_ref();
         let data = data.as_ref();
-        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
-                                                       mv_data: key.as_ptr() as *mut c_void };
-        let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: data.len() as size_t,
-                                                        mv_data: data.as_ptr() as *mut c_void };
+        let mut key_val: ffi::MDB_val = ffi::MDB_val {
+            mv_size: key.len() as size_t,
+            mv_data: key.as_ptr() as *mut c_void,
+        };
+        let mut data_val: ffi::MDB_val = ffi::MDB_val {
+            mv_size: data.len() as size_t,
+            mv_data: data.as_ptr() as *mut c_void,
+        };
         unsafe {
             lmdb_result(ffi::mdb_cursor_put(self.cursor(),
                                             &mut key_val,
@@ -189,12 +212,18 @@ impl <'txn> RwCursor<'txn> {
 
 unsafe fn slice_to_val(slice: Option<&[u8]>) -> ffi::MDB_val {
     match slice {
-        Some(slice) =>
-            ffi::MDB_val { mv_size: slice.len() as size_t,
-                           mv_data: slice.as_ptr() as *mut c_void },
-        None =>
-            ffi::MDB_val { mv_size: 0,
-                           mv_data: ptr::null_mut() },
+        Some(slice) => {
+            ffi::MDB_val {
+                mv_size: slice.len() as size_t,
+                mv_data: slice.as_ptr() as *mut c_void,
+            }
+        }
+        None => {
+            ffi::MDB_val {
+                mv_size: 0,
+                mv_data: ptr::null_mut(),
+            }
+        }
     }
 }
 
@@ -209,21 +238,30 @@ pub struct Iter<'txn> {
     _marker: PhantomData<fn(&'txn ())>,
 }
 
-impl <'txn> Iter<'txn> {
-
+impl<'txn> Iter<'txn> {
     /// Creates a new iterator backed by the given cursor.
     fn new<'t>(cursor: *mut ffi::MDB_cursor, op: c_uint, next_op: c_uint) -> Iter<'t> {
-        Iter { cursor: cursor, op: op, next_op: next_op, _marker: PhantomData }
+        Iter {
+            cursor: cursor,
+            op: op,
+            next_op: next_op,
+            _marker: PhantomData,
+        }
     }
 }
 
-impl <'txn> Iterator for Iter<'txn> {
-
+impl<'txn> Iterator for Iter<'txn> {
     type Item = (&'txn [u8], &'txn [u8]);
 
     fn next(&mut self) -> Option<(&'txn [u8], &'txn [u8])> {
-        let mut key = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
-        let mut data = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+        let mut key = ffi::MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
+        let mut data = ffi::MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
 
         unsafe {
             let err_code = ffi::mdb_cursor_get(self.cursor, &mut key, &mut data, self.op);
@@ -236,7 +274,8 @@ impl <'txn> Iterator for Iter<'txn> {
                 // and MDB_EINVAL (and we shouldn't be passing in invalid parameters).
                 // TODO: validate that these are the only failures possible.
                 debug_assert!(err_code == ffi::MDB_NOTFOUND,
-                              "Unexpected LMDB error {:?}.", Error::from_err_code(err_code));
+                              "Unexpected LMDB error {:?}.",
+                              Error::from_err_code(err_code));
                 None
             }
         }
@@ -249,24 +288,30 @@ pub struct IterDup<'txn> {
     _marker: PhantomData<fn(&'txn ())>,
 }
 
-impl <'txn> IterDup<'txn> {
-
+impl<'txn> IterDup<'txn> {
     /// Creates a new iterator backed by the given cursor.
     fn new<'t>(cursor: *mut ffi::MDB_cursor, op: c_uint) -> IterDup<'t> {
-        IterDup { cursor: cursor, op: op, _marker: PhantomData }
+        IterDup {
+            cursor: cursor,
+            op: op,
+            _marker: PhantomData,
+        }
     }
 }
 
-impl <'txn> Iterator for IterDup<'txn> {
-
+impl<'txn> Iterator for IterDup<'txn> {
     type Item = Iter<'txn>;
 
     fn next(&mut self) -> Option<Iter<'txn>> {
-        let mut key = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
-        let mut data = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
-        let err_code = unsafe {
-            ffi::mdb_cursor_get(self.cursor, &mut key, &mut data, self.op)
+        let mut key = ffi::MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
         };
+        let mut data = ffi::MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
+        let err_code = unsafe { ffi::mdb_cursor_get(self.cursor, &mut key, &mut data, self.op) };
 
         if err_code == ffi::MDB_SUCCESS {
             self.op = ffi::MDB_NEXT;
@@ -396,9 +441,8 @@ mod test {
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.open_db(None).unwrap();
 
-        let items: Vec<(&[u8], &[u8])> = vec!((b"key1", b"val1"),
-                                              (b"key2", b"val2"),
-                                              (b"key3", b"val3"));
+        let items: Vec<(&[u8], &[u8])> =
+            vec![(b"key1", b"val1"), (b"key2", b"val2"), (b"key3", b"val3")];
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
@@ -428,7 +472,7 @@ mod test {
         let env = Environment::new().open(dir.path()).unwrap();
         let db = env.create_db(None, DUP_SORT).unwrap();
 
-        let items: Vec<(&[u8], &[u8])> = vec!((b"a", b"1"),
+        let items: Vec<(&[u8], &[u8])> = vec![(b"a", b"1"),
                                               (b"a", b"2"),
                                               (b"a", b"3"),
                                               (b"b", b"1"),
@@ -436,7 +480,7 @@ mod test {
                                               (b"b", b"3"),
                                               (b"c", b"1"),
                                               (b"c", b"2"),
-                                              (b"c", b"3"));
+                                              (b"c", b"3")];
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
@@ -547,8 +591,14 @@ mod test {
         let _txn = env.begin_ro_txn().unwrap();
         let txn = _txn.txn();
 
-        let mut key = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
-        let mut data = MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
+        let mut key = MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
+        let mut data = MDB_val {
+            mv_size: 0,
+            mv_data: ptr::null_mut(),
+        };
         let mut cursor: *mut MDB_cursor = ptr::null_mut();
 
         b.iter(|| unsafe {
@@ -559,7 +609,7 @@ mod test {
             while mdb_cursor_get(cursor, &mut key, &mut data, MDB_NEXT) == 0 {
                 i += key.mv_size + data.mv_size;
                 count += 1;
-            };
+            }
 
             black_box(i);
             assert_eq!(count, n);

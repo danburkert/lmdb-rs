@@ -1,5 +1,5 @@
 use libc::{c_uint, size_t};
-use std::ffi::{CString, NulError};
+use std::ffi::CString;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 #[cfg(windows)]
@@ -209,7 +209,7 @@ impl EnvironmentBuilder {
             }
             let path = match CString::new(path.as_os_str().as_bytes()) {
                 Ok(path) => path,
-                Err(NulError { .. }) => return Err(::Error::Invalid),
+                Err(..) => return Err(::Error::Invalid),
             };
             lmdb_try_with_cleanup!(ffi::mdb_env_open(env, path.as_ptr(), self.flags.bits(), mode),
                                    ffi::mdb_env_close(env));

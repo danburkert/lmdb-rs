@@ -17,7 +17,7 @@ travis-ci = { repository = "danburkert/lmdb-rs" }
 appveyor = { repository = "danburkert/lmdb-rs" }
 
 [dependencies]
-bitflags = "0.7"
+bitflags = "0.9"
 libc = "0.2"
 lmdb-sys = { path = "lmdb-sys" }
 

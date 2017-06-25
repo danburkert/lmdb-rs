@@ -1,30 +1,20 @@
 language: rust
+dist: trusty
 sudo: false
 
-rust:
-- 1.8.0
-- nightly
+cache: cargo
 
 os:
   - linux
   - osx
 
-before_script:
-  - pip install 'travis-cargo<0.2' --user
-  - export PATH=$HOME/.local/bin:$PATH              # Linux
-  - export PATH=$HOME/Library/Python/2.7/bin:$PATH  # OS X
+rust:
+- 1.8.0
+- stable
+- nightly
 
 script:
-  - |
-      travis-cargo build &&
-      travis-cargo --only nightly test &&
-      travis-cargo bench &&
-      travis-cargo --only nightly doc
-
-after_success:
-  - travis-cargo --only nightly doc-upload
-
-env:
-  global:
-    - TRAVIS_CARGO_NIGHTLY_FEATURE=""
-    - secure: "BCsYNBS56hCKCMBZFLYDxKk3+UbFkAt+JRpPG9aiQyTVGkVqXNm4jPhiNSc4/JMuxoBVne+EzUrKVgdv3D7jTOx0sPsWEiE/oFK1K+6xusvsA87ZdDBC0hTRMiEHaufgtaGFJNwWW2tLzwlcdzvGUPVGYogao2MAxl1xlpppvso="
+  - cargo build --verbose
+  - if [[ $TRAVIS_RUST_VERSION = nightly* ]]; then
+      env RUST_BACKTRACE=1 cargo test --all -v;
+    fi

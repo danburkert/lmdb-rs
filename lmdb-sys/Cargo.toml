@@ -4,10 +4,13 @@ name = "lmdb-sys"
 version = "0.6.0"
 authors = ["Dan Burkert <dan@danburkert.com>"]
 license = "Apache-2.0"
+
 description = "Rust bindings for liblmdb."
 repository = "https://github.com/danburkert/lmdb-rs.git"
 readme = "../README.md"
-documentation = "http://danburkert.github.io/lmdb-rs/lmdb_sys/index.html"
+documentation = "https://docs.rs/lmdb-sys"
+keywords = ["LMDB", "database", "storage-engine", "bindings", "library"]
+categories = ["database", "external-ffi-bindings"]
 
 build = "build.rs"
 

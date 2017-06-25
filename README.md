@@ -1,9 +1,7 @@
 [![Build Status](https://travis-ci.org/danburkert/lmdb-rs.svg?branch=master)](https://travis-ci.org/danburkert/lmdb-rs)
 [![Windows Build Status](https://ci.appveyor.com/api/projects/status/0bw21yfqsrsv3soh/branch/master?svg=true)](https://ci.appveyor.com/project/danburkert/lmdb-rs/branch/master)
-
-[Documentation](http://danburkert.github.io/lmdb-rs/lmdb/index.html)
-
-[Cargo](https://crates.io/crates/lmdb)
+[![Documentation](https://docs.rs/lmdb/badge.svg)](https://docs.rs/lmdb/)
+[![Crate](https://img.shields.io/crates/v/lmdb.svg)](https://crates.io/crates/lmdb)
 
 # lmdb-rs
 
@@ -23,5 +21,5 @@ cargo build
 * [x] lmdb-sys.
 * [x] Cursors.
 * [x] Zero-copy put API.
-* [ ] Nested transactions.
+* [x] Nested transactions.
 * [ ] Database statistics.

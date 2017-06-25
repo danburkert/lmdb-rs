@@ -8,16 +8,18 @@ license = "Apache-2.0"
 description = "Idiomatic and safe LMDB wrapper."
 repository = "https://github.com/danburkert/lmdb-rs.git"
 readme = "README.md"
+documentation = "https://docs.rs/lmdb"
 keywords = ["LMDB", "database", "storage-engine", "bindings", "library"]
-documentation = "http://danburkert.github.io/lmdb-rs/lmdb/index.html"
+categories = ["database"]
 
-[dependencies.lmdb-sys]
-path = "lmdb-sys"
-version = "0.6.0"
+[badges]
+travis-ci = { repository = "danburkert/lmdb-rs" }
+appveyor = { repository = "danburkert/lmdb-rs" }
 
 [dependencies]
 bitflags = "0.7"
 libc = "0.2"
+lmdb-sys = { path = "lmdb-sys" }
 
 [dev-dependencies]
 rand = "0.3"

@@ -2,20 +2,23 @@ environment:
   matrix:
     - TARGET: x86_64-pc-windows-msvc
     - TARGET: i686-pc-windows-msvc
-    #- TARGET: x86_64-pc-windows-gnu
-    #- TARGET: i686-pc-windows-gnu
+    - TARGET: x86_64-pc-windows-gnu
+      MSYS_BITS: 64
+    - TARGET: i686-pc-windows-gnu
+      MSYS_BITS: 32
 
 install:
-  - ps: Start-FileDownload "https://static.rust-lang.org/dist/rust-nightly-${env:TARGET}.exe" -FileName "rust-install.exe"
-  - ps: .\rust-install.exe /VERYSILENT /NORESTART /DIR="C:\rust" | Out-Null
-  - ps: $env:PATH="$env:PATH;C:\rust\bin"
-  - rustc -vV
-  - cargo -vV
+  - ps: Start-FileDownload "https://static.rust-lang.org/dist/rust-nightly-${env:TARGET}.exe"
+  - rust-nightly-%TARGET%.exe /VERYSILENT /NORESTART /DIR="C:\Program Files (x86)\Rust"
+  - set PATH=%PATH%;C:\Program Files (x86)\Rust\bin
+  - if defined MSYS_BITS set PATH=%PATH%;C:\msys64\mingw%MSYS_BITS%\bin
+  - rustc -V
+  - cargo -V
 
 build_script:
   - git submodule -q update --init
-  - cargo build -v
+  - cargo build --target %TARGET% --all -v
 
 test_script:
   - SET RUST_BACKTRACE=1
-  - cargo test -v
+  - cargo test --target %TARGET% --all -v

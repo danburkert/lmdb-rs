@@ -1,11 +1,11 @@
 use libc::{c_uint, size_t};
+use std::{fmt, ptr, result};
 use std::ffi::CString;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 #[cfg(windows)]
 use std::ffi::OsStr;
 use std::path::Path;
-use std::ptr;
 use std::sync::Mutex;
 
 use ffi;
@@ -155,6 +155,12 @@ impl Environment {
 
 unsafe impl Send for Environment {}
 unsafe impl Sync for Environment {}
+
+impl fmt::Debug for Environment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        f.debug_struct("Environment").finish()
+    }
+}
 
 impl Drop for Environment {
     fn drop(&mut self) {

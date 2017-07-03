@@ -2,7 +2,7 @@
 
 name = "lmdb"
 # NB: When modifying, also modify html_root_url in lib.rs
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Dan Burkert <dan@danburkert.com>"]
 license = "Apache-2.0"
 
@@ -20,7 +20,7 @@ appveyor = { repository = "danburkert/lmdb-rs" }
 [dependencies]
 bitflags = "0.9"
 libc = "0.2"
-lmdb-sys = { path = "lmdb-sys" }
+lmdb-sys = "0.7"
 
 [dev-dependencies]
 rand = "0.3"

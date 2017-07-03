@@ -3,7 +3,7 @@
 
 #![cfg_attr(test, feature(test))]
 #![deny(warnings)]
-#![doc(html_root_url = "https://docs.rs/lmdb/0.6.0")]
+#![doc(html_root_url = "https://docs.rs/lmdb/0.7.0")]
 
 extern crate libc;
 extern crate lmdb_sys as ffi;

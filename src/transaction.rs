@@ -1,5 +1,5 @@
 use libc::{c_uint, c_void, size_t};
-use std::{mem, ptr, slice};
+use std::{fmt, mem, ptr, result, slice};
 use std::marker::PhantomData ;
 
 use ffi;
@@ -110,6 +110,12 @@ pub struct RoTransaction<'env> {
     _marker: PhantomData<&'env ()>,
 }
 
+impl <'env> fmt::Debug for RoTransaction<'env> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        f.debug_struct("RoTransaction").finish()
+    }
+}
+
 impl <'env> Drop for RoTransaction<'env> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_txn_abort(self.txn) }
@@ -166,6 +172,12 @@ pub struct InactiveTransaction<'env> {
     _marker: PhantomData<&'env ()>,
 }
 
+impl <'env> fmt::Debug for InactiveTransaction<'env> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        f.debug_struct("InactiveTransaction").finish()
+    }
+}
+
 impl <'env> Drop for InactiveTransaction<'env> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_txn_abort(self.txn) }
@@ -193,6 +205,12 @@ impl <'env> InactiveTransaction<'env> {
 pub struct RwTransaction<'env> {
     txn: *mut ffi::MDB_txn,
     _marker: PhantomData<&'env ()>,
+}
+
+impl <'env> fmt::Debug for RwTransaction<'env> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        f.debug_struct("RwTransaction").finish()
+    }
 }
 
 impl <'env> Drop for RwTransaction<'env> {

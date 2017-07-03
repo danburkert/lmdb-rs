@@ -1,5 +1,5 @@
 use libc::{c_void, size_t, c_uint};
-use std::{ptr, slice};
+use std::{fmt, ptr, result, slice};
 use std::marker::PhantomData;
 
 use database::Database;
@@ -108,6 +108,12 @@ impl <'txn> Cursor<'txn> for RoCursor<'txn> {
     }
 }
 
+impl <'txn> fmt::Debug for RoCursor<'txn> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        f.debug_struct("RoCursor").finish()
+    }
+}
+
 impl <'txn> Drop for RoCursor<'txn> {
     fn drop(&mut self) {
         unsafe { ffi::mdb_cursor_close(self.cursor) }
@@ -138,6 +144,12 @@ pub struct RwCursor<'txn> {
 impl <'txn> Cursor<'txn> for RwCursor<'txn> {
     fn cursor(&self) -> *mut ffi::MDB_cursor {
         self.cursor
+    }
+}
+
+impl <'txn> fmt::Debug for RwCursor<'txn> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        f.debug_struct("RwCursor").finish()
     }
 }
 
@@ -217,6 +229,12 @@ impl <'txn> Iter<'txn> {
     }
 }
 
+impl <'txn> fmt::Debug for Iter<'txn> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        f.debug_struct("Iter").finish()
+    }
+}
+
 impl <'txn> Iterator for Iter<'txn> {
 
     type Item = (&'txn [u8], &'txn [u8]);
@@ -254,6 +272,12 @@ impl <'txn> IterDup<'txn> {
     /// Creates a new iterator backed by the given cursor.
     fn new<'t>(cursor: *mut ffi::MDB_cursor, op: c_uint) -> IterDup<'t> {
         IterDup { cursor: cursor, op: op, _marker: PhantomData }
+    }
+}
+
+impl <'txn> fmt::Debug for IterDup<'txn> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        f.debug_struct("IterDup").finish()
     }
 }
 

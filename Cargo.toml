@@ -20,7 +20,7 @@ appveyor = { repository = "danburkert/lmdb-rs" }
 [dependencies]
 bitflags = "0.9"
 libc = "0.2"
-lmdb-sys = "0.7"
+lmdb-sys = { path = "lmdb-sys" }
 
 [dev-dependencies]
 rand = "0.3"

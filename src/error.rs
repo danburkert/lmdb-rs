@@ -1,6 +1,7 @@
 use libc::c_int;
 use std::error::Error as StdError;
 use std::ffi::CStr;
+use std::os::raw::c_char;
 use std::{fmt, result, str};
 
 use ffi;
@@ -115,7 +116,7 @@ impl StdError for Error {
     fn description(&self) -> &str {
         unsafe {
             // This is safe since the error messages returned from mdb_strerror are static.
-            let err: *const i8 = ffi::mdb_strerror(self.to_err_code()) as *const i8;
+            let err: *const c_char = ffi::mdb_strerror(self.to_err_code()) as *const c_char;
             str::from_utf8_unchecked(CStr::from_ptr(err).to_bytes())
         }
     }

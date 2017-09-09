@@ -17,4 +17,5 @@ script:
   - cargo build --verbose
   - if [[ $TRAVIS_RUST_VERSION = nightly* ]]; then
       env RUST_BACKTRACE=1 cargo test --all -v;
+      env RUST_BACKTRACE=1 cargo test --all -v --release;
     fi

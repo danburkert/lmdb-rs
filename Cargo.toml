@@ -25,3 +25,4 @@ lmdb-sys = { path = "lmdb-sys" }
 [dev-dependencies]
 rand = "0.3"
 tempdir = "0.3"
+byteorder = "1.0"

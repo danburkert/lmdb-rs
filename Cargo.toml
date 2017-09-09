@@ -2,7 +2,7 @@
 
 name = "lmdb"
 # NB: When modifying, also modify html_root_url in lib.rs
-version = "0.7.1"
+version = "0.7.2"
 authors = ["Dan Burkert <dan@danburkert.com>"]
 license = "Apache-2.0"
 
@@ -25,7 +25,7 @@ members = [
 [dependencies]
 bitflags = "0.9"
 libc = "0.2"
-lmdb-sys = { path = "lmdb-sys" }
+lmdb-sys = { version = "0.7.2", path = "lmdb-sys" }
 
 [dev-dependencies]
 rand = "0.3"

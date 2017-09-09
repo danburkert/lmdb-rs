@@ -17,6 +17,11 @@ categories = ["database"]
 travis-ci = { repository = "danburkert/lmdb-rs" }
 appveyor = { repository = "danburkert/lmdb-rs" }
 
+[workspace]
+members = [
+  "lmdb-sys",
+]
+
 [dependencies]
 bitflags = "0.9"
 libc = "0.2"

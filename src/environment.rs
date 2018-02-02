@@ -1,5 +1,5 @@
 use libc::{c_uint, size_t};
-use std::{fmt, ptr, result};
+use std::{fmt, ptr, result, mem};
 use std::ffi::CString;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
@@ -34,6 +34,11 @@ pub struct Environment {
     env: *mut ffi::MDB_env,
     dbi_open_mutex: Mutex<()>,
 }
+
+/// Database statistics
+///
+/// Contains information about the size and layout of an LMDB database
+pub struct Stat(ffi::MDB_stat);
 
 impl Environment {
 
@@ -150,6 +155,53 @@ impl Environment {
     /// `Error::BadValSize` (since the DB name is gone).
     pub unsafe fn close_db(&mut self, db: Database) {
         ffi::mdb_dbi_close(self.env, db.dbi());
+    }
+
+    /// Get database statistics
+    pub fn stat(&self) -> Result<Stat> {
+        unsafe {
+            let mut stat: Stat = mem::uninitialized();
+            lmdb_try!(ffi::mdb_env_stat(self.env(), &mut stat.0));
+            Ok(stat)
+        }
+    }
+}
+
+impl Stat {
+    /// Size of database in bytes
+    #[inline]
+    pub fn size(&self) -> u32 {
+        self.0.ms_psize
+    }
+
+    /// Height of B-tree
+    #[inline]
+    pub fn depth(&self) -> u32 {
+        self.0.ms_depth
+    }
+
+    /// Number of internal (non-leaf) pages
+    #[inline]
+    pub fn branch_pages(&self) -> usize {
+        self.0.ms_branch_pages
+    }
+
+    /// Number of lead pages
+    #[inline]
+    pub fn leaf_pages(&self) -> usize {
+        self.0.ms_leaf_pages
+    }
+
+    /// Number of overflow pages
+    #[inline]
+    pub fn overflow_pages(&self) -> usize {
+        self.0.ms_overflow_pages
+    }
+
+    /// Number of data items
+    #[inline]
+    pub fn entries(&self) -> usize {
+        self.0.ms_entries
     }
 }
 

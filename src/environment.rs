@@ -160,7 +160,7 @@ impl Environment {
     /// Get database statistics
     pub fn stat(&self) -> Result<Stat> {
         unsafe {
-            let mut stat: Stat = mem::uninitialized();
+            let mut stat = Stat(mem::uninitialized());
             lmdb_try!(ffi::mdb_env_stat(self.env(), &mut stat.0));
             Ok(stat)
         }

@@ -23,11 +23,11 @@ members = [
 ]
 
 [dependencies]
-bitflags = "0.9"
+bitflags = "1"
 libc = "0.2"
 lmdb-sys = { version = "0.7.2", path = "lmdb-sys" }
 
 [dev-dependencies]
-rand = "0.3"
+rand = "0.4"
 tempdir = "0.3"
 byteorder = "1.0"

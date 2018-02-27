@@ -349,7 +349,7 @@ mod test {
     fn test_get_dup() {
         let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
-        let db = env.create_db(None, DUP_SORT).unwrap();
+        let db = env.create_db(None, DatabaseFlags::DUP_SORT).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();
         txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
@@ -395,7 +395,7 @@ mod test {
     fn test_get_dupfixed() {
         let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
-        let db = env.create_db(None, DUP_SORT | DUP_FIXED).unwrap();
+        let db = env.create_db(None, DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();
         txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
@@ -449,7 +449,7 @@ mod test {
     fn test_iter_dup() {
         let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();
-        let db = env.create_db(None, DUP_SORT).unwrap();
+        let db = env.create_db(None, DatabaseFlags::DUP_SORT).unwrap();
 
         let items: Vec<(&[u8], &[u8])> = vec!((b"a", b"1"),
                                               (b"a", b"2"),

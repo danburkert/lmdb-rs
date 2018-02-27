@@ -337,7 +337,7 @@ mod test {
         let dir = TempDir::new("test").unwrap();
 
         // opening non-existent env with read-only should fail
-        assert!(Environment::new().set_flags(READ_ONLY)
+        assert!(Environment::new().set_flags(EnvironmentFlags::READ_ONLY)
                                   .open(dir.path())
                                   .is_err());
 
@@ -345,7 +345,7 @@ mod test {
         assert!(Environment::new().open(dir.path()).is_ok());
 
         // opening env with read-only should succeed
-        assert!(Environment::new().set_flags(READ_ONLY)
+        assert!(Environment::new().set_flags(EnvironmentFlags::READ_ONLY)
                                   .open(dir.path())
                                   .is_ok());
     }
@@ -362,7 +362,7 @@ mod test {
         }
 
         { // read-only environment
-            let env = Environment::new().set_flags(READ_ONLY)
+            let env = Environment::new().set_flags(EnvironmentFlags::READ_ONLY)
                                         .open(dir.path())
                                         .unwrap();
 
@@ -412,7 +412,7 @@ mod test {
             let env = Environment::new().open(dir.path()).unwrap();
             assert!(env.sync(true).is_ok());
         } {
-            let env = Environment::new().set_flags(READ_ONLY)
+            let env = Environment::new().set_flags(EnvironmentFlags::READ_ONLY)
                                         .open(dir.path())
                                         .unwrap();
             assert!(env.sync(true).is_err());

@@ -3,7 +3,8 @@ use libc::c_uint;
 use ffi::*;
 
 bitflags! {
-    #[doc="Environment Options"]
+    #[doc="Environment options."]
+    #[derive(Default)]
     pub struct EnvironmentFlags: c_uint {
 
         #[doc="Use a fixed address for the mmap region. This flag must be specified"]
@@ -103,7 +104,8 @@ bitflags! {
 }
 
 bitflags! {
-    #[doc="Database Options"]
+    #[doc="Database options."]
+    #[derive(Default)]
     pub struct DatabaseFlags: c_uint {
 
         #[doc="Keys are strings to be compared in reverse order, from the end of the strings"]
@@ -138,7 +140,8 @@ bitflags! {
 }
 
 bitflags! {
-    #[doc="Write Options"]
+    #[doc="Write options."]
+    #[derive(Default)]
     pub struct WriteFlags: c_uint {
 
         #[doc="Insert the new item only if the key does not already appear in the database."]

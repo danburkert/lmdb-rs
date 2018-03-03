@@ -35,11 +35,6 @@ pub struct Environment {
     dbi_open_mutex: Mutex<()>,
 }
 
-/// Database statistics
-///
-/// Contains information about the size and layout of an LMDB database
-pub struct Stat(ffi::MDB_stat);
-
 impl Environment {
 
     /// Creates a new builder for specifying options for opening an LMDB environment.
@@ -109,6 +104,9 @@ impl Environment {
         Ok(db)
     }
 
+    /// Retrieves the set of flags which the database is opened with.
+    ///
+    /// The database must belong to to this environment.
     pub fn get_db_flags<'env>(&'env self, db: Database) -> Result<DatabaseFlags> {
         let txn = self.begin_ro_txn()?;
         let mut flags: c_uint = 0;
@@ -157,7 +155,7 @@ impl Environment {
         ffi::mdb_dbi_close(self.env, db.dbi());
     }
 
-    /// Get database statistics.
+    /// Retrieves statistics about this environment.
     pub fn stat(&self) -> Result<Stat> {
         unsafe {
             let mut stat = Stat(mem::zeroed());
@@ -167,14 +165,19 @@ impl Environment {
     }
 }
 
+/// Environment statistics.
+///
+/// Contains information about the size and layout of an LMDB environment.
+pub struct Stat(ffi::MDB_stat);
+
 impl Stat {
-    /// Size of database in bytes.
+    /// Size of a database page. This is the same for all databases in the environment.
     #[inline]
-    pub fn size(&self) -> u32 {
+    pub fn page_size(&self) -> u32 {
         self.0.ms_psize
     }
 
-    /// Height of B-tree.
+    /// Depth (height) of the B-tree.
     #[inline]
     pub fn depth(&self) -> u32 {
         self.0.ms_depth
@@ -186,7 +189,7 @@ impl Stat {
         self.0.ms_branch_pages
     }
 
-    /// Number of lead pages.
+    /// Number of leaf pages.
     #[inline]
     pub fn leaf_pages(&self) -> usize {
         self.0.ms_leaf_pages
@@ -276,6 +279,7 @@ impl EnvironmentBuilder {
 
     }
 
+    /// Sets the provided options in the environment.
     pub fn set_flags(&mut self, flags: EnvironmentFlags) -> &mut EnvironmentBuilder {
         self.flags = flags;
         self

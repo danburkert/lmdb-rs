@@ -212,6 +212,7 @@ unsafe fn val_to_slice<'a>(val: ffi::MDB_val) -> &'a [u8] {
     slice::from_raw_parts(val.mv_data as *const u8, val.mv_size as usize)
 }
 
+/// An iterator over the values in an LMDB database.
 pub struct Iter<'txn> {
     cursor: *mut ffi::MDB_cursor,
     op: c_uint,
@@ -259,6 +260,10 @@ impl <'txn> Iterator for Iter<'txn> {
     }
 }
 
+/// An iterator over the keys and duplicate values in an LMDB database.
+///
+/// The yielded items of the iterator are themselves iterators over the duplicate values for a
+/// specific key.
 pub struct IterDup<'txn> {
     cursor: *mut ffi::MDB_cursor,
     op: c_uint,

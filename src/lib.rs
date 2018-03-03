@@ -2,7 +2,6 @@
 //! [Lightning Memory-mapped Database (LMDB)](https://symas.com/lmdb).
 
 #![cfg_attr(test, feature(test))]
-#![deny(warnings)]
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/lmdb/0.7.2")]
 

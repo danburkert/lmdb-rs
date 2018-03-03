@@ -76,9 +76,9 @@ impl Environment {
     /// The database name may not contain the null character.
     pub fn open_db<'env>(&'env self, name: Option<&str>) -> Result<Database> {
         let mutex = self.dbi_open_mutex.lock();
-        let txn = try!(self.begin_ro_txn());
-        let db = unsafe { try!(txn.open_db(name)) };
-        try!(txn.commit());
+        let txn = self.begin_ro_txn()?;
+        let db = unsafe { txn.open_db(name)? };
+        txn.commit()?;
         drop(mutex);
         Ok(db)
     }
@@ -102,18 +102,18 @@ impl Environment {
                            flags: DatabaseFlags)
                            -> Result<Database> {
         let mutex = self.dbi_open_mutex.lock();
-        let txn = try!(self.begin_rw_txn());
-        let db = unsafe { try!(txn.create_db(name, flags)) };
-        try!(txn.commit());
+        let txn = self.begin_rw_txn()?;
+        let db = unsafe { txn.create_db(name, flags)? };
+        txn.commit()?;
         drop(mutex);
         Ok(db)
     }
 
     pub fn get_db_flags<'env>(&'env self, db: Database) -> Result<DatabaseFlags> {
-        let txn = try!(self.begin_ro_txn());
+        let txn = self.begin_ro_txn()?;
         let mut flags: c_uint = 0;
         unsafe {
-            try!(lmdb_result(ffi::mdb_dbi_flags(txn.txn(), db.dbi(), &mut flags)));
+            lmdb_result(ffi::mdb_dbi_flags(txn.txn(), db.dbi(), &mut flags))?;
         }
         Ok(DatabaseFlags::from_bits(flags).unwrap())
     }

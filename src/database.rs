@@ -28,7 +28,7 @@ impl Database {
         let c_name = name.map(|n| CString::new(n).unwrap());
         let name_ptr = if let Some(ref c_name) = c_name { c_name.as_ptr() } else { ptr::null() };
         let mut dbi: ffi::MDB_dbi = 0;
-        try!(lmdb_result(ffi::mdb_dbi_open(txn, name_ptr, flags, &mut dbi)));
+        lmdb_result(ffi::mdb_dbi_open(txn, name_ptr, flags, &mut dbi))?;
         Ok(Database { dbi: dbi })
     }
 

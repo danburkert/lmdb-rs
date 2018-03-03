@@ -28,7 +28,7 @@ pub trait Cursor<'txn> {
             let mut key_val = slice_to_val(key);
             let mut data_val = slice_to_val(data);
             let key_ptr = key_val.mv_data;
-            try!(lmdb_result(ffi::mdb_cursor_get(self.cursor(), &mut key_val, &mut data_val, op)));
+            lmdb_result(ffi::mdb_cursor_get(self.cursor(), &mut key_val, &mut data_val, op))?;
             let key_out = if key_ptr != key_val.mv_data { Some(val_to_slice(key_val)) } else { None };
             let data_out = val_to_slice(data_val);
             Ok((key_out, data_out))
@@ -91,7 +91,7 @@ pub trait Cursor<'txn> {
     /// key.
     fn iter_dup_of<K>(&mut self, key: &K) -> Result<Iter<'txn>> where K:
         AsRef<[u8]> {
-        try!(self.get(Some(key.as_ref()), None, ffi::MDB_SET));
+        self.get(Some(key.as_ref()), None, ffi::MDB_SET)?;
         Ok(Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT_DUP))
     }
 }
@@ -127,7 +127,7 @@ impl <'txn> RoCursor<'txn> {
     #[doc(hidden)]
     pub fn new<T>(txn: &'txn T, db: Database) -> Result<RoCursor<'txn>> where T: Transaction {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
-        unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
+        unsafe { lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))?; }
         Ok(RoCursor {
             cursor: cursor,
             _marker: PhantomData,
@@ -166,7 +166,7 @@ impl <'txn> RwCursor<'txn> {
     #[doc(hidden)]
     pub fn new<T>(txn: &'txn T, db: Database) -> Result<RwCursor<'txn>> where T: Transaction {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
-        unsafe { try!(lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))); }
+        unsafe { lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))?; }
         Ok(RwCursor { cursor: cursor, _marker: PhantomData })
     }
 

@@ -124,8 +124,7 @@ impl <'txn> RoCursor<'txn> {
 
     /// Creates a new read-only cursor in the given database and transaction.
     /// Prefer using `Transaction::open_cursor`.
-    #[doc(hidden)]
-    pub fn new<T>(txn: &'txn T, db: Database) -> Result<RoCursor<'txn>> where T: Transaction {
+    pub(crate) fn new<T>(txn: &'txn T, db: Database) -> Result<RoCursor<'txn>> where T: Transaction {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
         unsafe { lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))?; }
         Ok(RoCursor {
@@ -163,8 +162,7 @@ impl <'txn> RwCursor<'txn> {
 
     /// Creates a new read-only cursor in the given database and transaction.
     /// Prefer using `RwTransaction::open_rw_cursor`.
-    #[doc(hidden)]
-    pub fn new<T>(txn: &'txn T, db: Database) -> Result<RwCursor<'txn>> where T: Transaction {
+    pub(crate) fn new<T>(txn: &'txn T, db: Database) -> Result<RwCursor<'txn>> where T: Transaction {
         let mut cursor: *mut ffi::MDB_cursor = ptr::null_mut();
         unsafe { lmdb_result(ffi::mdb_cursor_open(txn.txn(), db.dbi(), &mut cursor))?; }
         Ok(RwCursor { cursor: cursor, _marker: PhantomData })

@@ -126,8 +126,7 @@ impl <'env> RoTransaction<'env> {
 
     /// Creates a new read-only transaction in the given environment. Prefer
     /// using `Environment::begin_ro_txn`.
-    #[doc(hidden)]
-    pub fn new(env: &'env Environment) -> Result<RoTransaction<'env>> {
+    pub(crate) fn new(env: &'env Environment) -> Result<RoTransaction<'env>> {
         let mut txn: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
             lmdb_result(ffi::mdb_txn_begin(env.env(), ptr::null_mut(), ffi::MDB_RDONLY, &mut txn))?;
@@ -220,8 +219,7 @@ impl <'env> RwTransaction<'env> {
 
     /// Creates a new read-write transaction in the given environment. Prefer
     /// using `Environment::begin_ro_txn`.
-    #[doc(hidden)]
-    pub fn new(env: &'env Environment) -> Result<RwTransaction<'env>> {
+    pub(crate) fn new(env: &'env Environment) -> Result<RwTransaction<'env>> {
         let mut txn: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
             lmdb_result(ffi::mdb_txn_begin(env.env(),
@@ -244,7 +242,7 @@ impl <'env> RwTransaction<'env> {
     ///
     /// ## Safety
     ///
-    /// * This function (as well as `Environment::open_db`,
+    /// This function (as well as `Environment::open_db`,
     /// `Environment::create_db`, and `Database::open`) **must not** be called
     /// from multiple concurrent transactions in the same environment. A
     /// transaction which uses this function must finish (either commit or

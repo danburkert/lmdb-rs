@@ -21,7 +21,7 @@ pub use cursor::{
     IterDup,
 };
 pub use database::Database;
-pub use environment::{Environment, EnvironmentBuilder};
+pub use environment::{Environment, Stat, EnvironmentBuilder};
 pub use error::{Error, Result};
 pub use flags::*;
 pub use transaction::{
@@ -107,7 +107,7 @@ mod test_utils {
             builder.set_map_size(1_000_000);
             builder.open(dir.path()).expect("open lmdb env")
         };
-        let index = env.create_db(None, DUP_SORT).expect("open index db");
+        let index = env.create_db(None, DatabaseFlags::DUP_SORT).expect("open index db");
 
         for height in 0..1000 {
             let mut value = [0u8; 8];

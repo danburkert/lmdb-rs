@@ -1,5 +1,5 @@
 extern crate pkg_config;
-extern crate gcc;
+extern crate cc;
 
 use std::env;
 use std::path::PathBuf;
@@ -11,7 +11,7 @@ fn main() {
     lmdb.push("liblmdb");
 
     if !pkg_config::find_library("liblmdb").is_ok() {
-        gcc::Config::new()
+        cc::Build::new()
                     .file(lmdb.join("mdb.c"))
                     .file(lmdb.join("midl.c"))
                     // https://github.com/LMDB/lmdb/blob/LMDB_0.9.21/libraries/liblmdb/Makefile#L25

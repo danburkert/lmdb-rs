@@ -330,7 +330,10 @@ impl EnvironmentBuilder {
 #[cfg(test)]
 mod test {
 
+    extern crate byteorder;
+
     use tempdir::TempDir;
+    use self::byteorder::{ByteOrder, LittleEndian};
 
     use flags::*;
 
@@ -421,5 +424,40 @@ mod test {
                                         .unwrap();
             assert!(env.sync(true).is_err());
         }
+    }
+
+    #[test]
+    fn test_stat() {
+        let dir = TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
+
+        // Stats should be empty initially.
+        let stat = env.stat().unwrap();
+        assert_eq!(stat.page_size(), 4096);
+        assert_eq!(stat.depth(), 0);
+        assert_eq!(stat.branch_pages(), 0);
+        assert_eq!(stat.leaf_pages(), 0);
+        assert_eq!(stat.overflow_pages(), 0);
+        assert_eq!(stat.entries(), 0);
+
+        let db = env.open_db(None).unwrap();
+
+        // Write a few small values.
+        for i in 0..64 {
+            let mut value = [0u8; 8];
+            LittleEndian::write_u64(&mut value, i);
+            let mut tx = env.begin_rw_txn().expect("begin_rw_txn");
+            tx.put(db, &value, &value, WriteFlags::default()).expect("tx.put");
+            tx.commit().expect("tx.commit")
+        }
+
+        // Stats should now reflect inserted values.
+        let stat = env.stat().unwrap();
+        assert_eq!(stat.page_size(), 4096);
+        assert_eq!(stat.depth(), 1);
+        assert_eq!(stat.branch_pages(), 0);
+        assert_eq!(stat.leaf_pages(), 1);
+        assert_eq!(stat.overflow_pages(), 0);
+        assert_eq!(stat.entries(), 64);
     }
 }

@@ -118,7 +118,7 @@ mod test_utils {
                    &HEIGHT_KEY,
                    &value,
                    WriteFlags::empty()).expect("tx.put");
-            tx.commit().expect("ts.commit")
+            tx.commit().expect("tx.commit")
         }
     }
 }

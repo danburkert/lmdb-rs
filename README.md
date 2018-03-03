@@ -16,7 +16,7 @@ cd lmdb-rs
 cargo build
 ```
 
-## TODO
+## Features
 
 * [x] lmdb-sys.
 * [x] Cursors.

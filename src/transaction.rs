@@ -98,7 +98,7 @@ pub trait Transaction : Sized {
     fn db_flags(&self, db: Database) -> Result<DatabaseFlags> {
         let mut flags: c_uint = 0;
         unsafe {
-            try!(lmdb_result(ffi::mdb_dbi_flags(self.txn(), db.dbi(), &mut flags)));
+            lmdb_result(ffi::mdb_dbi_flags(self.txn(), db.dbi(), &mut flags))?;
         }
         Ok(DatabaseFlags::from_bits_truncate(flags))
     }
@@ -130,10 +130,7 @@ impl <'env> RoTransaction<'env> {
     pub fn new(env: &'env Environment) -> Result<RoTransaction<'env>> {
         let mut txn: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
-            try!(lmdb_result(ffi::mdb_txn_begin(env.env(),
-                                                ptr::null_mut(),
-                                                ffi::MDB_RDONLY,
-                                                &mut txn)));
+            lmdb_result(ffi::mdb_txn_begin(env.env(), ptr::null_mut(), ffi::MDB_RDONLY, &mut txn))?;
             Ok(RoTransaction { txn: txn, _marker: PhantomData })
         }
     }
@@ -195,7 +192,7 @@ impl <'env> InactiveTransaction<'env> {
         let txn = self.txn;
         unsafe {
             mem::forget(self);
-            try!(lmdb_result(ffi::mdb_txn_renew(txn)))
+            lmdb_result(ffi::mdb_txn_renew(txn))?
         };
         Ok(RoTransaction { txn: txn, _marker: PhantomData })
     }
@@ -227,10 +224,10 @@ impl <'env> RwTransaction<'env> {
     pub fn new(env: &'env Environment) -> Result<RwTransaction<'env>> {
         let mut txn: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
-            try!(lmdb_result(ffi::mdb_txn_begin(env.env(),
-                                                ptr::null_mut(),
-                                                EnvironmentFlags::empty().bits(),
-                                                &mut txn)));
+            lmdb_result(ffi::mdb_txn_begin(env.env(),
+                        ptr::null_mut(),
+                        EnvironmentFlags::empty().bits(),
+                        &mut txn))?;
             Ok(RwTransaction { txn: txn, _marker: PhantomData })
         }
     }
@@ -305,11 +302,11 @@ impl <'env> RwTransaction<'env> {
         let mut data_val: ffi::MDB_val = ffi::MDB_val { mv_size: len,
                                                         mv_data: ptr::null_mut::<c_void>() };
         unsafe {
-            try!(lmdb_result(ffi::mdb_put(self.txn(),
-                                          database.dbi(),
-                                          &mut key_val,
-                                          &mut data_val,
-                                          flags.bits() | ffi::MDB_RESERVE)));
+            lmdb_result(ffi::mdb_put(self.txn(),
+                        database.dbi(),
+                        &mut key_val,
+                        &mut data_val,
+                        flags.bits() | ffi::MDB_RESERVE))?;
             Ok(slice::from_raw_parts_mut(data_val.mv_data as *mut u8,
                                          data_val.mv_size as usize))
         }

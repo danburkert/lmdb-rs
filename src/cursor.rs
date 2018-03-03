@@ -135,7 +135,7 @@ impl <'txn> RoCursor<'txn> {
     }
 }
 
-/// A read-only cursor for navigating items within a database.
+/// A read-write cursor for navigating items within a database.
 pub struct RwCursor<'txn> {
     cursor: *mut ffi::MDB_cursor,
     _marker: PhantomData<fn() -> &'txn ()>,

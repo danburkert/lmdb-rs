@@ -52,8 +52,14 @@ pub trait Cursor<'txn> {
     /// duplicate data items of each key will be returned before moving on to
     /// the next key.
     fn iter_start(&mut self) -> Iter<'txn> {
-        self.get(None, None, ffi::MDB_FIRST).unwrap();
-        Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT)
+        // When the db is empty, this returns NotFound, which means the iterator should not even
+        // try to proceed or it too will error with code 22
+        let complete = self.get(None, None, ffi::MDB_FIRST)
+            .map(|_| false)
+            .unwrap_or(true);
+        let mut iter = Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT);
+        iter.complete = complete;
+        iter
     }
 
     /// Iterate over database items starting from the given key.
@@ -217,6 +223,7 @@ pub struct Iter<'txn> {
     cursor: *mut ffi::MDB_cursor,
     op: c_uint,
     next_op: c_uint,
+    complete: bool,
     _marker: PhantomData<fn(&'txn ())>,
 }
 
@@ -224,7 +231,7 @@ impl <'txn> Iter<'txn> {
 
     /// Creates a new iterator backed by the given cursor.
     fn new<'t>(cursor: *mut ffi::MDB_cursor, op: c_uint, next_op: c_uint) -> Iter<'t> {
-        Iter { cursor: cursor, op: op, next_op: next_op, _marker: PhantomData }
+        Iter { cursor: cursor, op: op, next_op: next_op, complete: false, _marker: PhantomData }
     }
 }
 
@@ -239,6 +246,9 @@ impl <'txn> Iterator for Iter<'txn> {
     type Item = (&'txn [u8], &'txn [u8]);
 
     fn next(&mut self) -> Option<(&'txn [u8], &'txn [u8])> {
+        if self.complete {
+            return None
+        }
         let mut key = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
         let mut data = ffi::MDB_val { mv_size: 0, mv_data: ptr::null_mut() };
 
@@ -254,6 +264,7 @@ impl <'txn> Iterator for Iter<'txn> {
                 // TODO: validate that these are the only failures possible.
                 debug_assert!(err_code == ffi::MDB_NOTFOUND,
                               "Unexpected LMDB error {:?}.", Error::from_err_code(err_code));
+                self.complete = true;
                 None
             }
         }
@@ -446,6 +457,28 @@ mod test {
 
         assert_eq!(items.clone().into_iter().skip(1).collect::<Vec<_>>(),
                    cursor.iter_from(b"key2").collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn test_iter_start_empty() {
+        let dir = TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
+        let db = env.open_db(None).unwrap();
+        let txn = env.begin_ro_txn().unwrap();
+        let mut cursor = txn.open_ro_cursor(db).unwrap();
+
+        assert_eq!(0, cursor.iter_start().count());
+    }
+
+    #[test]
+    fn test_iter_empty() {
+        let dir = TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
+        let db = env.open_db(None).unwrap();
+        let txn = env.begin_ro_txn().unwrap();
+        let mut cursor = txn.open_ro_cursor(db).unwrap();
+
+        assert_eq!(0, cursor.iter().count());
     }
 
     #[test]

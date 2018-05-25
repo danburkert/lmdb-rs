@@ -62,7 +62,11 @@ pub trait Cursor<'txn> {
     /// duplicate data items of each key will be returned before moving on to
     /// the next key.
     fn iter_from<K>(&mut self, key: K) -> Iter<'txn> where K: AsRef<[u8]> {
-        self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE).unwrap();
+        match self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE) {
+            Err(Error::NotFound) => Ok(()),
+            Err(error) => Err(error),
+            Ok(_) => Ok(()),
+        }.unwrap();
         Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT)
     }
 
@@ -83,7 +87,11 @@ pub trait Cursor<'txn> {
     /// Iterate over duplicate items in the database starting from the given
     /// key. Each item will be returned as an iterator of its duplicates.
     fn iter_dup_from<K>(&mut self, key: &K) -> IterDup<'txn> where K: AsRef<[u8]> {
-        self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE).unwrap();
+        match self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE) {
+            Err(Error::NotFound) => Ok(()),
+            Err(error) => Err(error),
+            Ok(_) => Ok(()),
+        }.unwrap();
         IterDup::new(self.cursor(), ffi::MDB_GET_CURRENT)
     }
 
@@ -424,7 +432,8 @@ mod test {
 
         let items: Vec<(&[u8], &[u8])> = vec!((b"key1", b"val1"),
                                               (b"key2", b"val2"),
-                                              (b"key3", b"val3"));
+                                              (b"key3", b"val3"),
+                                              (b"key5", b"val5"));
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
@@ -446,6 +455,12 @@ mod test {
 
         assert_eq!(items.clone().into_iter().skip(1).collect::<Vec<_>>(),
                    cursor.iter_from(b"key2").collect::<Vec<_>>());
+
+        assert_eq!(items.clone().into_iter().skip(3).collect::<Vec<_>>(),
+                   cursor.iter_from(b"key4").collect::<Vec<_>>());
+
+        assert_eq!(vec!().into_iter().collect::<Vec<(&[u8], &[u8])>>(),
+                   cursor.iter_from(b"key6").collect::<Vec<_>>());
     }
 
     #[test]
@@ -462,7 +477,10 @@ mod test {
                                               (b"b", b"3"),
                                               (b"c", b"1"),
                                               (b"c", b"2"),
-                                              (b"c", b"3"));
+                                              (b"c", b"3"),
+                                              (b"e", b"1"),
+                                              (b"e", b"2"),
+                                              (b"e", b"3"));
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
@@ -488,6 +506,12 @@ mod test {
 
         assert_eq!(items.clone().into_iter().skip(3).collect::<Vec<(&[u8], &[u8])>>(),
                    cursor.iter_dup_from(b"ab").flat_map(|x| x).collect::<Vec<_>>());
+
+        assert_eq!(items.clone().into_iter().skip(9).collect::<Vec<(&[u8], &[u8])>>(),
+                   cursor.iter_dup_from(b"d").flat_map(|x| x).collect::<Vec<_>>());
+
+        assert_eq!(vec!().into_iter().collect::<Vec<(&[u8], &[u8])>>(),
+                   cursor.iter_dup_from(b"f").flat_map(|x| x).collect::<Vec<_>>());
 
         assert_eq!(items.clone().into_iter().skip(3).take(3).collect::<Vec<(&[u8], &[u8])>>(),
                    cursor.iter_dup_of(b"b").unwrap().collect::<Vec<_>>());

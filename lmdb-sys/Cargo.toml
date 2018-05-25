@@ -1,13 +1,17 @@
 [package]
 
 name = "lmdb-sys"
-version = "0.5.0"
+# NB: When modifying, also modify html_root_url in lib.rs
+version = "0.8.0"
 authors = ["Dan Burkert <dan@danburkert.com>"]
 license = "Apache-2.0"
+
 description = "Rust bindings for liblmdb."
 repository = "https://github.com/danburkert/lmdb-rs.git"
 readme = "../README.md"
-documentation = "http://danburkert.github.io/lmdb-rs/lmdb_sys/index.html"
+documentation = "https://docs.rs/lmdb-sys"
+keywords = ["LMDB", "database", "storage-engine", "bindings", "library"]
+categories = ["database", "external-ffi-bindings"]
 
 build = "build.rs"
 
@@ -16,4 +20,4 @@ libc = "0.2"
 
 [build-dependencies]
 pkg-config = "0.3"
-gcc = "0.3"
+cc = "1"

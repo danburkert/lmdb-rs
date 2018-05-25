@@ -1,10 +1,12 @@
 use libc::c_int;
 use std::error::Error as StdError;
 use std::ffi::CStr;
+use std::os::raw::c_char;
 use std::{fmt, result, str};
 
 use ffi;
 
+/// An LMDB error kind.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Error {
     /// key/data pair already exists.
@@ -52,6 +54,8 @@ pub enum Error {
 }
 
 impl Error {
+
+    /// Converts a raw error code to an `Error`.
     pub fn from_err_code(err_code: c_int) -> Error {
         match err_code {
             ffi::MDB_KEYEXIST         => Error::KeyExist,
@@ -78,6 +82,7 @@ impl Error {
         }
     }
 
+    /// Converts an `Error` to the raw error code.
     pub fn to_err_code(&self) -> c_int {
         match *self {
             Error::KeyExist        => ffi::MDB_KEYEXIST,
@@ -115,12 +120,13 @@ impl StdError for Error {
     fn description(&self) -> &str {
         unsafe {
             // This is safe since the error messages returned from mdb_strerror are static.
-            let err: *const i8 = ffi::mdb_strerror(self.to_err_code()) as *const i8;
+            let err: *const c_char = ffi::mdb_strerror(self.to_err_code()) as *const c_char;
             str::from_utf8_unchecked(CStr::from_ptr(err).to_bytes())
         }
     }
 }
 
+/// An LMDB result.
 pub type Result<T> = result::Result<T, Error>;
 
 pub fn lmdb_result(err_code: c_int) -> Result<()> {
@@ -145,5 +151,4 @@ mod test {
         assert_eq!("MDB_NOTFOUND: No matching key/data pair found",
                    Error::NotFound.description());
     }
-
 }

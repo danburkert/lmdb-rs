@@ -61,9 +61,13 @@ pub trait Cursor<'txn> {
     /// For databases with duplicate data items (`DatabaseFlags::DUP_SORT`), the
     /// duplicate data items of each key will be returned before moving on to
     /// the next key.
-    fn iter_from<K>(&mut self, key: K) -> Result<Iter<'txn>> where K: AsRef<[u8]> {
-        try!(self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE));
-        Ok(Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT))
+    fn iter_from<K>(&mut self, key: K) -> Iter<'txn> where K: AsRef<[u8]> {
+        match self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE) {
+            Err(Error::NotFound) => Ok(()),
+            Err(error) => Err(error),
+            Ok(_) => Ok(()),
+        }.unwrap();
+        Iter::new(self.cursor(), ffi::MDB_GET_CURRENT, ffi::MDB_NEXT)
     }
 
     /// Iterate over duplicate database items. The iterator will begin with the
@@ -82,9 +86,13 @@ pub trait Cursor<'txn> {
 
     /// Iterate over duplicate items in the database starting from the given
     /// key. Each item will be returned as an iterator of its duplicates.
-    fn iter_dup_from<K>(&mut self, key: &K) -> Result<IterDup<'txn>> where K: AsRef<[u8]> {
-        try!(self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE));
-        Ok(IterDup::new(self.cursor(), ffi::MDB_GET_CURRENT))
+    fn iter_dup_from<K>(&mut self, key: &K) -> IterDup<'txn> where K: AsRef<[u8]> {
+        match self.get(Some(key.as_ref()), None, ffi::MDB_SET_RANGE) {
+            Err(Error::NotFound) => Ok(()),
+            Err(error) => Err(error),
+            Ok(_) => Ok(()),
+        }.unwrap();
+        IterDup::new(self.cursor(), ffi::MDB_GET_CURRENT)
     }
 
     /// Iterate over the duplicates of the item in the database with the given
@@ -446,12 +454,13 @@ mod test {
         assert_eq!(items, cursor.iter_start().collect::<Vec<_>>());
 
         assert_eq!(items.clone().into_iter().skip(1).collect::<Vec<_>>(),
-                   cursor.iter_from(b"key2").unwrap().collect::<Vec<_>>());
+                   cursor.iter_from(b"key2").collect::<Vec<_>>());
 
         assert_eq!(items.clone().into_iter().skip(3).collect::<Vec<_>>(),
-                   cursor.iter_from(b"key4").unwrap().collect::<Vec<_>>());
+                   cursor.iter_from(b"key4").collect::<Vec<_>>());
 
-        assert!(cursor.iter_from(b"key6").is_err());
+        assert_eq!(vec!().into_iter().collect::<Vec<(&[u8], &[u8])>>(),
+                   cursor.iter_from(b"key6").collect::<Vec<_>>());
     }
 
     #[test]
@@ -493,18 +502,20 @@ mod test {
                    cursor.iter_dup_start().flat_map(|x| x).collect::<Vec<(&[u8], &[u8])>>());
 
         assert_eq!(items.clone().into_iter().skip(3).collect::<Vec<(&[u8], &[u8])>>(),
-                   cursor.iter_dup_from(b"b").unwrap().flat_map(|x| x).collect::<Vec<_>>());
+                   cursor.iter_dup_from(b"b").flat_map(|x| x).collect::<Vec<_>>());
 
         assert_eq!(items.clone().into_iter().skip(3).collect::<Vec<(&[u8], &[u8])>>(),
-                   cursor.iter_dup_from(b"ab").unwrap().flat_map(|x| x).collect::<Vec<_>>());
+                   cursor.iter_dup_from(b"ab").flat_map(|x| x).collect::<Vec<_>>());
 
         assert_eq!(items.clone().into_iter().skip(9).collect::<Vec<(&[u8], &[u8])>>(),
-                   cursor.iter_dup_from(b"d").unwrap().flat_map(|x| x).collect::<Vec<_>>());
+                   cursor.iter_dup_from(b"d").flat_map(|x| x).collect::<Vec<_>>());
+
+        assert_eq!(vec!().into_iter().collect::<Vec<(&[u8], &[u8])>>(),
+                   cursor.iter_dup_from(b"f").flat_map(|x| x).collect::<Vec<_>>());
 
         assert_eq!(items.clone().into_iter().skip(3).take(3).collect::<Vec<(&[u8], &[u8])>>(),
                    cursor.iter_dup_of(b"b").unwrap().collect::<Vec<_>>());
 
-        assert!(cursor.iter_dup_from(b"foo").is_err());
         assert!(cursor.iter_dup_of(b"foo").is_err());
     }
 

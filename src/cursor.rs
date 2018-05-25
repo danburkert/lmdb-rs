@@ -424,7 +424,8 @@ mod test {
 
         let items: Vec<(&[u8], &[u8])> = vec!((b"key1", b"val1"),
                                               (b"key2", b"val2"),
-                                              (b"key3", b"val3"));
+                                              (b"key3", b"val3"),
+                                              (b"key5", b"val5"));
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
@@ -447,7 +448,10 @@ mod test {
         assert_eq!(items.clone().into_iter().skip(1).collect::<Vec<_>>(),
                    cursor.iter_from(b"key2").unwrap().collect::<Vec<_>>());
 
-        assert!(cursor.iter_from(b"foo").is_err());
+        assert_eq!(items.clone().into_iter().skip(3).collect::<Vec<_>>(),
+                   cursor.iter_from(b"key4").unwrap().collect::<Vec<_>>());
+
+        assert!(cursor.iter_from(b"key6").is_err());
     }
 
     #[test]
@@ -464,7 +468,10 @@ mod test {
                                               (b"b", b"3"),
                                               (b"c", b"1"),
                                               (b"c", b"2"),
-                                              (b"c", b"3"));
+                                              (b"c", b"3"),
+                                              (b"e", b"1"),
+                                              (b"e", b"2"),
+                                              (b"e", b"3"));
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
@@ -490,6 +497,9 @@ mod test {
 
         assert_eq!(items.clone().into_iter().skip(3).collect::<Vec<(&[u8], &[u8])>>(),
                    cursor.iter_dup_from(b"ab").unwrap().flat_map(|x| x).collect::<Vec<_>>());
+
+        assert_eq!(items.clone().into_iter().skip(9).collect::<Vec<(&[u8], &[u8])>>(),
+                   cursor.iter_dup_from(b"d").unwrap().flat_map(|x| x).collect::<Vec<_>>());
 
         assert_eq!(items.clone().into_iter().skip(3).take(3).collect::<Vec<(&[u8], &[u8])>>(),
                    cursor.iter_dup_of(b"b").unwrap().collect::<Vec<_>>());

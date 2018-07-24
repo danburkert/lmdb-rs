@@ -1,17 +1,18 @@
-[![Build Status](https://travis-ci.org/danburkert/lmdb-rs.svg?branch=master)](https://travis-ci.org/danburkert/lmdb-rs)
-[![Windows Build Status](https://ci.appveyor.com/api/projects/status/0bw21yfqsrsv3soh/branch/master?svg=true)](https://ci.appveyor.com/project/danburkert/lmdb-rs/branch/master)
-[![Documentation](https://docs.rs/lmdb/badge.svg)](https://docs.rs/lmdb/)
-[![Crate](https://img.shields.io/crates/v/lmdb.svg)](https://crates.io/crates/lmdb)
+[![Build Status](https://travis-ci.org/mozilla/lmdb-rs.svg?branch=master)](https://travis-ci.org/mozilla/lmdb-rs)
+[![Windows Build status](https://ci.appveyor.com/api/projects/status/id69kkymorycld55/branch/master?svg=true)](https://ci.appveyor.com/project/mykmelez/lmdb-rs-rrsb3/branch/master)
 
 # lmdb-rs
 
 Idiomatic and safe APIs for interacting with the
 [Symas Lightning Memory-Mapped Database (LMDB)](http://symas.com/mdb/).
 
+This repo is a fork of [danburkert/lmdb-rs](https://github.com/danburkert/lmdb-rs)
+with fixes for issues encountered by [mozilla/rkv](https://github.com/mozilla/rkv).
+
 ## Building from Source
 
 ```bash
-git clone --recursive git@github.com:danburkert/lmdb-rs.git
+git clone --recursive git@github.com:mozilla/lmdb-rs.git
 cd lmdb-rs
 cargo build
 ```

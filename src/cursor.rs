@@ -313,6 +313,7 @@ mod test {
     use flags::*;
     use super::*;
     use test_utils::*;
+    use transaction::RoTransaction;
 
     #[test]
     fn test_get() {
@@ -633,5 +634,22 @@ mod test {
             assert_eq!(count, n);
             mdb_cursor_close(cursor);
         });
+    }
+
+    /// "error: process didn't exit successfully…
+    /// (signal: 11, SIGSEGV: invalid memory reference)"
+    #[test]
+    fn test_iter_getter_segfaults() {
+        let dir = TempDir::new("test").unwrap();
+        let env = Environment::new().open(dir.path()).unwrap();
+        let db = env.open_db(None).unwrap();
+        let txn = env.begin_ro_txn().unwrap();
+
+        fn get_iter<'a>(db: Database, txn: &'a RoTransaction<'a>) -> Iter {
+            let mut cursor = txn.open_ro_cursor(db).unwrap();
+            cursor.iter()
+        }
+
+        let _result: Vec<_> = get_iter(db, &txn).collect();
     }
 }

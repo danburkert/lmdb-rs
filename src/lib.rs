@@ -1,7 +1,7 @@
 //! Idiomatic and safe APIs for interacting with the
 //! [Lightning Memory-mapped Database (LMDB)](https://symas.com/lmdb).
 
-#![cfg_attr(test, feature(test))]
+#![cfg_attr(all(test, feature = "nightly"), feature(test))]
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/lmdb/0.8.0")]
 
@@ -10,7 +10,7 @@ extern crate lmdb_sys as ffi;
 
 #[cfg(test)] extern crate rand;
 #[cfg(test)] extern crate tempdir;
-#[cfg(test)] extern crate test;
+#[cfg(all(test, feature = "nightly"))] extern crate test;
 #[macro_use] extern crate bitflags;
 
 pub use cursor::{
@@ -69,14 +69,17 @@ mod test_utils {
 
     use super::*;
 
+    #[cfg(feature = "nightly")]
     pub fn get_key(n: u32) -> String {
         format!("key{}", n)
     }
 
+    #[cfg(feature = "nightly")]
     pub fn get_data(n: u32) -> String {
         format!("data{}", n)
     }
 
+    #[cfg(feature = "nightly")]
     pub fn setup_bench_db<'a>(num_rows: u32) -> (TempDir, Environment) {
         let dir = TempDir::new("test").unwrap();
         let env = Environment::new().open(dir.path()).unwrap();

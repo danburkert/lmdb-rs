@@ -303,7 +303,9 @@ impl <'txn> Iterator for IterDup<'txn> {
 #[cfg(test)]
 mod test {
 
+    #[cfg(feature = "nightly")]
     use std::ptr;
+    #[cfg(feature = "nightly")]
     use test::{Bencher, black_box};
 
     use tempdir::TempDir;
@@ -312,6 +314,7 @@ mod test {
     use ffi::*;
     use flags::*;
     use super::*;
+    #[cfg(feature = "nightly")]
     use test_utils::*;
 
     #[test]
@@ -559,6 +562,7 @@ mod test {
     }
 
     /// Benchmark of iterator sequential read performance.
+    #[cfg(feature = "nightly")]
     #[bench]
     fn bench_get_seq_iter(b: &mut Bencher) {
         let n = 100;
@@ -582,6 +586,7 @@ mod test {
     }
 
     /// Benchmark of cursor sequential read performance.
+    #[cfg(feature = "nightly")]
     #[bench]
     fn bench_get_seq_cursor(b: &mut Bencher) {
         let n = 100;
@@ -605,6 +610,7 @@ mod test {
     }
 
     /// Benchmark of raw LMDB sequential read performance (control).
+    #[cfg(feature = "nightly")]
     #[bench]
     fn bench_get_seq_raw(b: &mut Bencher) {
         let n = 100;

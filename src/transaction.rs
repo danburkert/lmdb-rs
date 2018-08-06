@@ -376,21 +376,27 @@ impl <'env> Transaction for RwTransaction<'env> {
 #[cfg(test)]
 mod test {
 
+    #[cfg(feature = "nightly")]
     use libc::size_t;
+    #[cfg(feature = "nightly")]
     use rand::{Rng, XorShiftRng};
     use std::io::Write;
+    #[cfg(feature = "nightly")]
     use std::ptr;
     use std::sync::{Arc, Barrier};
     use std::thread::{self, JoinHandle};
+    #[cfg(feature = "nightly")]
     use test::{Bencher, black_box};
 
     use tempdir::TempDir;
 
     use environment::*;
     use error::*;
+    #[cfg(feature = "nightly")]
     use ffi::*;
     use flags::*;
     use super::*;
+    #[cfg(feature = "nightly")]
     use test_utils::*;
 
     #[test]
@@ -596,6 +602,7 @@ mod test {
         }
     }
 
+    #[cfg(feature = "nightly")]
     #[bench]
     fn bench_get_rand(b: &mut Bencher) {
         let n = 100u32;
@@ -615,6 +622,7 @@ mod test {
         });
     }
 
+    #[cfg(feature = "nightly")]
     #[bench]
     fn bench_get_rand_raw(b: &mut Bencher) {
         let n = 100u32;
@@ -645,6 +653,7 @@ mod test {
         });
     }
 
+    #[cfg(feature = "nightly")]
     #[bench]
     fn bench_put_rand(b: &mut Bencher) {
         let n = 100u32;
@@ -663,6 +672,7 @@ mod test {
         });
     }
 
+    #[cfg(feature = "nightly")]
     #[bench]
     fn bench_put_rand_raw(b: &mut Bencher) {
         let n = 100u32;

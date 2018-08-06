@@ -1,11 +1,17 @@
 environment:
   matrix:
     - TARGET: x86_64-pc-windows-msvc
+      RUST_VERSION: stable
     - TARGET: i686-pc-windows-msvc
+      RUST_VERSION: stable
+    - TARGET: x86_64-pc-windows-msvc
+      RUST_VERSION: nightly
+    - TARGET: i686-pc-windows-msvc
+      RUST_VERSION: nightly
 
 install:
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
-  - rustup-init.exe -y --default-host %TARGET% --default-toolchain nightly
+  - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -Vv
   - cargo -V
@@ -17,6 +23,9 @@ test_script:
   - SET RUST_BACKTRACE=1
   - cargo test --target %TARGET% --all -v
   - cargo test --release --target %TARGET% --all -v
+  # Benchmark results on CI are untrustworthy, but it's still useful
+  # to confirm that they compile.
+  - if "%RUST_VERSION%" == "nightly" cargo bench --no-run --features nightly
 
 cache:
   - C:\Users\appveyor\.cargo\registry

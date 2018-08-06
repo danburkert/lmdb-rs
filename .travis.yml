@@ -15,7 +15,9 @@ rust:
 
 script:
   - cargo build --verbose
+  - env RUST_BACKTRACE=1 cargo test --all -v
+  - env RUST_BACKTRACE=1 cargo test --all -v --release
+
   - if [[ $TRAVIS_RUST_VERSION = nightly* ]]; then
-      env RUST_BACKTRACE=1 cargo test --all -v;
-      env RUST_BACKTRACE=1 cargo test --all -v --release;
+      env RUST_BACKTRACE=1 cargo bench --no-run --features nightly;
     fi

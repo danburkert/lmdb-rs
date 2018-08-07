@@ -163,6 +163,16 @@ impl Environment {
             Ok(stat)
         }
     }
+
+    /// Retrieves statistics about specified database of this environment.
+    pub fn db_stat(&self, db: Database) -> Result<Stat> {
+        let txn = self.begin_ro_txn()?;
+        unsafe {
+            let mut stat = Stat(mem::zeroed());
+            lmdb_try!(ffi::mdb_stat(txn.txn(), db.dbi(), &mut stat.0));
+            Ok(stat)
+        }
+    }
 }
 
 /// Environment statistics.

@@ -472,4 +472,64 @@ mod test {
         assert_eq!(stat.overflow_pages(), 0);
         assert_eq!(stat.entries(), 64);
     }
+
+    #[test]
+    fn test_db_stat() {
+        let dir = TempDir::new("test").unwrap();
+        let env = Environment::new().set_max_dbs(2).open(dir.path()).unwrap();
+
+        // Stats should be empty initially.
+        let stat = env.stat().unwrap();
+        assert_eq!(stat.page_size(), 4096);
+        assert_eq!(stat.depth(), 0);
+        assert_eq!(stat.branch_pages(), 0);
+        assert_eq!(stat.leaf_pages(), 0);
+        assert_eq!(stat.overflow_pages(), 0);
+        assert_eq!(stat.entries(), 0);
+
+        let db1 = env.create_db(Some("db1"), Default::default()).unwrap();
+        let db2 = env.create_db(Some("db2"), Default::default()).unwrap();
+
+        // Write a few small values.
+        for i in 0..64 {
+            let mut value = [0u8; 8];
+            LittleEndian::write_u64(&mut value, i);
+            let mut tx = env.begin_rw_txn().expect("begin_rw_txn");
+            tx.put(db1, &value, &value, WriteFlags::default()).expect("tx.put");
+            tx.commit().expect("tx.commit")
+        }
+
+        for i in 0..32 {
+            let mut value = [0u8; 8];
+            LittleEndian::write_u64(&mut value, i);
+            let mut tx = env.begin_rw_txn().expect("begin_rw_txn");
+            tx.put(db2, &value, &value, WriteFlags::default()).expect("tx.put");
+            tx.commit().expect("tx.commit")
+        }
+
+        let stat = env.stat().unwrap();
+        assert_eq!(stat.page_size(), 4096);
+        assert_eq!(stat.depth(), 1);
+        assert_eq!(stat.branch_pages(), 0);
+        assert_eq!(stat.leaf_pages(), 1);
+        assert_eq!(stat.overflow_pages(), 0);
+        assert_eq!(stat.entries(), 2);
+
+        // Stats should now reflect inserted values.
+        let stat = env.db_stat(db1).unwrap();
+        assert_eq!(stat.page_size(), 4096);
+        assert_eq!(stat.depth(), 1);
+        assert_eq!(stat.branch_pages(), 0);
+        assert_eq!(stat.leaf_pages(), 1);
+        assert_eq!(stat.overflow_pages(), 0);
+        assert_eq!(stat.entries(), 64);
+
+        let stat = env.db_stat(db2).unwrap();
+        assert_eq!(stat.page_size(), 4096);
+        assert_eq!(stat.depth(), 1);
+        assert_eq!(stat.branch_pages(), 0);
+        assert_eq!(stat.leaf_pages(), 1);
+        assert_eq!(stat.overflow_pages(), 0);
+        assert_eq!(stat.entries(), 32);
+    }
 }

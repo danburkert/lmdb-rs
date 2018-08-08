@@ -433,7 +433,10 @@ mod test {
 
         let txn = env.begin_ro_txn().unwrap();
         let mut cursor = txn.open_ro_cursor(db).unwrap();
+
         assert_eq!(items, cursor.iter().collect::<Result<Vec<_>>>().unwrap());
+        let retr: Result<Vec<_>> = cursor.iter().collect();
+        assert_eq!(items, retr.unwrap());
 
         cursor.get(Some(b"key2"), None, MDB_SET).unwrap();
         assert_eq!(items.clone().into_iter().skip(2).collect::<Vec<_>>(),
@@ -449,6 +452,16 @@ mod test {
 
         assert_eq!(vec!().into_iter().collect::<Vec<(&[u8], &[u8])>>(),
                    cursor.iter_from(b"key6").unwrap().collect::<Result<Vec<_>>>().unwrap());
+
+        // Demonstrate how a function that returns a result can use the "?"
+        // operator to propagate an error returned by Cursor::iter*() methods.
+        fn iterate<'a>(cursor: &mut RoCursor) -> Result<()> {
+            match cursor.iter_from("a")?.collect::<Result<Vec<_>>>() {
+                Ok(_) => Ok(()),
+                Err(error) => Err(error),
+            }
+        }
+        iterate(&mut cursor).unwrap();
     }
 
     #[test]
@@ -571,10 +584,30 @@ mod test {
             let mut i = 0;
             let mut count = 0u32;
 
-            for (key, data) in cursor.iter().map(|x| x.unwrap()) {
+            for (key, data) in cursor.iter().map(Result::unwrap) {
                 i = i + key.len() + data.len();
                 count = count + 1;
             }
+            for (key, data) in cursor.iter().filter_map(Result::ok) {
+                i = i + key.len() + data.len();
+                count = count + 1;
+            }
+
+            fn iterate<'a>(cursor: &mut RoCursor) -> Result<()> {
+                let mut i = 0;
+                let mut count = 0u32;
+                for result in cursor.iter() {
+                    // let (key, data) = match result {
+                    //     Ok((key, data)) => (key, data),
+                    //     Err(error) => return Err(error),
+                    // };
+                    let (key, data) = result?;
+                    i = i + key.len() + data.len();
+                    count = count + 1;
+                }
+                Ok(())
+            }
+            iterate(&mut cursor).unwrap();
 
             black_box(i);
             assert_eq!(count, n);

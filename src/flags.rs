@@ -171,3 +171,14 @@ bitflags! {
         const APPEND_DUP = MDB_APPENDDUP;
     }
 }
+
+bitflags! {
+    #[doc="Environment Copy Options"]
+    pub struct EnvironmentCopyFlags: c_uint {
+
+        #[doc="Perform compaction while copying: omit free pages and sequentially renumber all "]
+        #[doc="pages in output. This option consumes more CPU and runs more slowly than the "]
+        #[doc="default, but may produce a smaller output database."]
+        const COMPACT = MDB_CP_COMPACT;
+    }
+}

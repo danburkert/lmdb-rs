@@ -434,8 +434,13 @@ mod test {
         let txn = env.begin_ro_txn().unwrap();
         let mut cursor = txn.open_ro_cursor(db).unwrap();
 
+        // Because Result implements FromIterator, we can collect the iterator
+        // of items of type Result<_, E> into a Result<Vec<_, E>> by specifying
+        // the collection type via the turbofish syntax.
         assert_eq!(items, cursor.iter().collect::<Result<Vec<_>>>().unwrap());
-        let retr: Result<Vec<_>> = cursor.iter().collect();
+
+        // Alternately, we can collect it into an appropriately typed variable.
+        let retr: Result<Vec<_>> = cursor.iter_start().collect();
         assert_eq!(items, retr.unwrap());
 
         cursor.get(Some(b"key2"), None, MDB_SET).unwrap();

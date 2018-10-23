@@ -602,10 +602,6 @@ mod test {
                 let mut i = 0;
                 let mut count = 0u32;
                 for result in cursor.iter() {
-                    // let (key, data) = match result {
-                    //     Ok((key, data)) => (key, data),
-                    //     Err(error) => return Err(error),
-                    // };
                     let (key, data) = result?;
                     i = i + key.len() + data.len();
                     count = count + 1;

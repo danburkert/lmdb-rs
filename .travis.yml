@@ -9,7 +9,7 @@ os:
   - osx
 
 rust:
-- 1.20.0
+- 1.30.0
 - stable
 - nightly
 

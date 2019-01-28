@@ -1,5 +1,5 @@
 use libc::{c_uint, size_t};
-use std::{fmt, ptr, result, mem};
+use std::{fmt, ptr, result};
 use std::ffi::CString;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
@@ -12,6 +12,7 @@ use ffi;
 
 use error::{Result, lmdb_result};
 use database::Database;
+use stat::Stat;
 use transaction::{RoTransaction, RwTransaction, Transaction};
 use flags::{DatabaseFlags, EnvironmentFlags};
 
@@ -158,53 +159,10 @@ impl Environment {
     /// Retrieves statistics about this environment.
     pub fn stat(&self) -> Result<Stat> {
         unsafe {
-            let mut stat = Stat(mem::zeroed());
-            lmdb_try!(ffi::mdb_env_stat(self.env(), &mut stat.0));
+            let mut stat = Stat::new();
+            lmdb_try!(ffi::mdb_env_stat(self.env(), stat.stat()));
             Ok(stat)
         }
-    }
-}
-
-/// Environment statistics.
-///
-/// Contains information about the size and layout of an LMDB environment.
-pub struct Stat(ffi::MDB_stat);
-
-impl Stat {
-    /// Size of a database page. This is the same for all databases in the environment.
-    #[inline]
-    pub fn page_size(&self) -> u32 {
-        self.0.ms_psize
-    }
-
-    /// Depth (height) of the B-tree.
-    #[inline]
-    pub fn depth(&self) -> u32 {
-        self.0.ms_depth
-    }
-
-    /// Number of internal (non-leaf) pages.
-    #[inline]
-    pub fn branch_pages(&self) -> usize {
-        self.0.ms_branch_pages
-    }
-
-    /// Number of leaf pages.
-    #[inline]
-    pub fn leaf_pages(&self) -> usize {
-        self.0.ms_leaf_pages
-    }
-
-    /// Number of overflow pages.
-    #[inline]
-    pub fn overflow_pages(&self) -> usize {
-        self.0.ms_overflow_pages
-    }
-
-    /// Number of data items.
-    #[inline]
-    pub fn entries(&self) -> usize {
-        self.0.ms_entries
     }
 }
 

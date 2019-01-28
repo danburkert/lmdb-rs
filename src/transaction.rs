@@ -7,6 +7,7 @@ use ffi;
 use cursor::{RoCursor, RwCursor};
 use environment::Environment;
 use database::Database;
+use stat::Stat;
 use error::{Error, Result, lmdb_result};
 use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 
@@ -101,6 +102,15 @@ pub trait Transaction : Sized {
             lmdb_result(ffi::mdb_dbi_flags(self.txn(), db.dbi(), &mut flags))?;
         }
         Ok(DatabaseFlags::from_bits_truncate(flags))
+    }
+
+    /// Retrieves statistics about a database.
+    fn stat<'txn>(&'txn self, database: Database) -> Result<Stat> {
+        unsafe {
+            let mut stat = Stat::new();
+            lmdb_try!(ffi::mdb_stat(self.txn(), database.dbi(), stat.stat()));
+            Ok(stat)
+        }
     }
 }
 

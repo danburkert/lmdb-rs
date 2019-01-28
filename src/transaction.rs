@@ -7,6 +7,7 @@ use ffi;
 use cursor::{RoCursor, RwCursor};
 use environment::Environment;
 use database::Database;
+use stat::Stat;
 use error::{Error, Result, lmdb_result};
 use flags::{DatabaseFlags, EnvironmentFlags, WriteFlags};
 
@@ -106,53 +107,10 @@ pub trait Transaction : Sized {
     /// Retrieves statistics about a database.
     fn stat<'txn>(&'txn self, database: Database) -> Result<Stat> {
         unsafe {
-            let mut stat = Stat(mem::zeroed());
-            lmdb_try!(ffi::mdb_stat(self.txn(), database.dbi(), &mut stat.0));
+            let mut stat = Stat::new();
+            lmdb_try!(ffi::mdb_stat(self.txn(), database.dbi(), stat.stat()));
             Ok(stat)
         }
-    }
-}
-
-/// Database statistics.
-///
-/// Contains information about the size and layout of an LMDB database.
-pub struct Stat(ffi::MDB_stat);
-
-impl Stat {
-    /// Size of a database page. This is the same for all databases in the environment.
-    #[inline]
-    pub fn page_size(&self) -> u32 {
-        self.0.ms_psize
-    }
-
-    /// Depth (height) of the B-tree.
-    #[inline]
-    pub fn depth(&self) -> u32 {
-        self.0.ms_depth
-    }
-
-    /// Number of internal (non-leaf) pages.
-    #[inline]
-    pub fn branch_pages(&self) -> usize {
-        self.0.ms_branch_pages
-    }
-
-    /// Number of leaf pages.
-    #[inline]
-    pub fn leaf_pages(&self) -> usize {
-        self.0.ms_leaf_pages
-    }
-
-    /// Number of overflow pages.
-    #[inline]
-    pub fn overflow_pages(&self) -> usize {
-        self.0.ms_overflow_pages
-    }
-
-    /// Number of data items.
-    #[inline]
-    pub fn entries(&self) -> usize {
-        self.0.ms_entries
     }
 }
 

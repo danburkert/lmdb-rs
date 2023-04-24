@@ -10,7 +10,7 @@ fn main() {
     lmdb.push("libraries");
     lmdb.push("liblmdb");
 
-    if !pkg_config::find_library("liblmdb").is_ok() {
+    if !pkg_config::find_library("lmdb").is_ok() && !pkg_config::find_library("liblmdb").is_ok() {
         let target = env::var("TARGET").expect("No TARGET found");
         let mut build = cc::Build::new();
         if target.contains("android") {
